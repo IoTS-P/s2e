@@ -529,17 +529,21 @@ void PeripheralModelLearning::initialize() {
         getWarningsStream() << "Not allow new peripherals registers in fuzzing mode\n";
     }
 
+    //
     onARMFunctionConnection = s2e()->getPlugin<ARMFunctionMonitor>();
     onARMFunctionConnection->onARMFunctionCallEvent.connect(
         sigc::mem_fun(*this, &PeripheralModelLearning::onARMFunctionCall));
     onARMFunctionConnection->onARMFunctionReturnEvent.connect(
         sigc::mem_fun(*this, &PeripheralModelLearning::onARMFunctionReturn));
+
+    //
     onInvalidStateDectionConnection = s2e()->getPlugin<InvalidStatesDetection>();
     onInvalidStateDectionConnection->onInvalidStatesEvent.connect(
         sigc::mem_fun(*this, &PeripheralModelLearning::onInvalidStatesDetection));
     onInvalidStateDectionConnection->onLearningTerminationEvent.connect(
         sigc::mem_fun(*this, &PeripheralModelLearning::onLearningTerminationDetection));
 
+    //
     g_s2e_cache_mode = s2e()->getConfig()->getBool(getConfigKey() + ".useKnowledgeBase", false);
     if (g_s2e_cache_mode) {
         fileName = s2e()->getConfig()->getString(getConfigKey() + ".cacheFileName", "statename");
