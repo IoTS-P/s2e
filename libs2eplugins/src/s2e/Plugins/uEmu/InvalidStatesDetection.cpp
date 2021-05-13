@@ -233,6 +233,10 @@ void InvalidStatesDetection::initialize() {
     cache_tb_num = s2e()->getConfig()->getInt(getConfigKey() + ".bb_inv1", 20, &ok);
     max_loop_tb_num = s2e()->getConfig()->getInt(getConfigKey() + ".bb_inv2", 2000, &ok);
     terminate_tb_num = s2e()->getConfig()->getInt(getConfigKey() + ".bb_terminate", 30000, &ok);
+    if (cache_mode) {
+        terminate_tb_num = terminate_tb_num*0.8;
+    }
+    initial_terminate_tb_num = terminate_tb_num;
     tb_interval = s2e()->getConfig()->getInt(getConfigKey() + ".tbInterval", 3000, &ok);
 
     if (!ok || cache_tb_num <= 0 || terminate_tb_num <= 0) {
@@ -324,9 +328,10 @@ void InvalidStatesDetection::onCacheModeMonitor(S2EExecutionState *state, uint64
     getDebugStream() << "InvalidStatesDetection in cache mode " << plgState->getnewtbnum() << " pc = " << hexval(pc)
                      << " disable_interrupt_count = " << disable_interrupt_count
                      << " interrupt flag = " << state->regs()->getInterruptFlag() << "\n";
+
     if (plgState->inctbnum(pc)) {
-        getWarningsStream() << "InvalidStatesDetection in cache mode new tb num = " << plgState->getnewtbnum()
-                            << " pc = " << hexval(pc) << "\n";
+        getInfoStream() << "The unqiue number of the executed basic blocks in currecnt state is "
+                            << plgState->getnewtbnum() << " pc = " << hexval(pc) << "\n";
     }
 
     // we should make sure new tb in normal mode will be executed after interrupt
@@ -376,7 +381,7 @@ bool InvalidStatesDetection::onModeSwitchandTermination(S2EExecutionState *state
 
         invalidPCAccessConnection = s2e()->getCorePlugin()->onInvalidPCAccess.connect(
             sigc::mem_fun(*this, &InvalidStatesDetection::onInvalidPCAccess));
-        getWarningsStream() << "mode switch!! path killer is enable\n";
+        getInfoStream() << "mode switch!! path killer is enable\n";
         plgState->reset_allcache();
         cache_mode = false;
         return false;
@@ -385,10 +390,13 @@ bool InvalidStatesDetection::onModeSwitchandTermination(S2EExecutionState *state
     // learning mode termination and switch to cache mode
     if (plgState->getnewtbnum() > 200 && plgState->getretbnum() > terminate_tb_num &&
         (state->regs()->getInterruptFlag() == 0)) {
-        getWarningsStream(state) << " mode switch current pc = " << hexval(pc) << "\n";
-        bool actual_end = true;
+        bool actual_end = false;
+        if (terminate_tb_num > 2*initial_terminate_tb_num) {
+            actual_end = true;
+        }
         onLearningTerminationEvent.emit(state, &actual_end, plgState->getnewtbnum());
         if (actual_end) {
+            getInfoStream(state) << " mode switch current pc = " << hexval(pc) << "\n";
             cache_mode = true;
             plgState->reset_allcache();
             invalidPCAccessConnection.disconnect();
@@ -481,7 +489,7 @@ void InvalidStatesDetection::onInvalidLoopDetection(S2EExecutionState *state, ui
     plgState->setcachenum(cache_tb_num);
     std::vector<uint32_t> conregs = getRegs(state, pc);
 
-    getDebugStream(state) << state->regs()->getInterruptFlag() << " current pc = " << hexval(pc) << " re tb num "
+    getInfoStream(state) << state->regs()->getInterruptFlag() << " current pc = " << hexval(pc) << " re tb num "
                              << plgState->getretbnum() << " concrete mode: " << conregs[1] << "\n";
 
     // kill points defined by users
@@ -534,7 +542,7 @@ void InvalidStatesDetection::onInvalidLoopDetection(S2EExecutionState *state, ui
                     std::string reason_str = "Kill State due to dead loop (multi-tbs):";
                     onInvalidStatesKill(state, pc, DL2, reason_str);
                 } else {
-                    getWarningsStream() << " cannot kill dead loop in concrete mode" << plgState->getnewtbnum() << "\n";
+                    getWarningsStream() << " cannot kill dead loop in concrete mode pc = " << hexval(pc) << "\n";
                     g_s2e_allow_interrupt = 2; // continue wait for irq
                     plgState->setloopflag(false);
                     plgState->inserttbregs(conregs);
