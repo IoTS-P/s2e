@@ -8,12 +8,12 @@
 namespace s2e {
 namespace plugins {
 
-class InstructionTracker : public Plugin
+class DmaRelatedMonitor : public Plugin
 {
     S2E_PLUGIN
     uint64_t m_address;
 public:
-    InstructionTracker(S2E *s2e): Plugin(s2e) {}
+    DmaRelatedMonitor(S2E *s2e): Plugin(s2e) {}
 
     void initialize();
     void onTranslateInstruction(ExecutionSignal *signal,
