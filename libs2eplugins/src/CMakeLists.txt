@@ -162,6 +162,9 @@ add_library(
     s2e/Plugins/uEmu/ExternalInterrupt.cpp
     s2e/Plugins/uEmu/ARMFunctionMonitor.cpp
     s2e/Plugins/uEmu/InvalidStatesDetection.cpp
+    
+    # test plugin
+    s2e/Plugins/TestPlugin/DmaRelatedMonitor.cpp
 
     # Support plugins
     s2e/Plugins/Support/KeyValueStore.cpp
