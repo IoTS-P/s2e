@@ -283,7 +283,6 @@ void AFLFuzzer::onModeSwitch(S2EExecutionState *state, bool fuzzing_to_learning)
         memcpy(afl_area_ptr, bitmap, MAP_SIZE);
         afl_con->AFL_input = 0;
         // afl_con->AFL_return = FAULT_ERROR;
-        blockEndConnection.disconnect();
         concreteDataMemoryAccessConnection.disconnect();
         invalidPCAccessConnection.disconnect();
         timerConnection.disconnect();
@@ -292,8 +291,6 @@ void AFLFuzzer::onModeSwitch(S2EExecutionState *state, bool fuzzing_to_learning)
     } else {
         getInfoStream() << " AFL Reconnection !!\n";
         timer_ticks = 0;
-        blockEndConnection = s2e()->getCorePlugin()->onTranslateBlockEnd.connect(
-            sigc::mem_fun(*this, &AFLFuzzer::onTranslateBlockEnd));
         concreteDataMemoryAccessConnection = s2e()->getCorePlugin()->onConcreteDataMemoryAccess.connect(
             sigc::mem_fun(*this, &AFLFuzzer::onConcreteDataMemoryAccess));
         invalidPCAccessConnection =
@@ -383,6 +380,7 @@ void AFLFuzzer::onInvalidPCAccess(S2EExecutionState *state, uint64_t addr) {
 
 void AFLFuzzer::onConcreteDataMemoryAccess(S2EExecutionState *state, uint64_t address, uint64_t value, uint8_t size,
                                            unsigned flags) {
+    DECLARE_PLUGINSTATE(AFLFuzzerState, state);
 
     bool is_write = false;
     if (flags & MEM_TRACE_FLAG_WRITE) {
@@ -407,6 +405,10 @@ void AFLFuzzer::onConcreteDataMemoryAccess(S2EExecutionState *state, uint64_t ad
         return;
     }
 
+    if (plgState->get_hit_count() == 0) {
+        return;
+    }
+
     // additional user-defined available rw regions
     for (auto writeable_range : additional_writeable_ranges) {
         if (address >= writeable_range.first && address < writeable_range.first + writeable_range.second) {
@@ -424,11 +426,29 @@ void AFLFuzzer::onConcreteDataMemoryAccess(S2EExecutionState *state, uint64_t ad
         getWarningsStream() << "Kill Fuzz State due to out of bound read, access address = " << hexval(address)
                             << " pc = " << hexval(pc) << "\n";
     } else {
-        getWarningsStream() << "Kill Fuzz State due to out of bound write, access address = " << hexval(address)
-                            << " pc = " << hexval(pc) << "\n";
+        if (address > 0x20200000) {
+            getWarningsStream() << "Kill Fuzz State due to out of bound write, access address = " << hexval(address)
+                                << " pc = " << hexval(pc) << "\n";
+        } else {
+            return;
+        }
     }
 
     onCrashHang(state, 1);
+}
+
+void AFLFuzzer::recordTBMap() {
+    std::string fileName;
+    fileName = s2e()->getOutputDirectory() + "/fuzz_tb_map.txt";
+    std::ofstream fTBmap;
+    fTBmap.open(fileName, std::ios::out | std::ios::trunc);
+
+    for (auto ittb : all_tb_map) {
+        if (ittb.second > 0)
+            fTBmap << hexval(ittb.first)  << " " << ittb.second << std::endl;;
+    }
+
+    fTBmap.close();
 }
 
 void AFLFuzzer::onTranslateBlockEnd(ExecutionSignal *signal, S2EExecutionState *state,
@@ -447,9 +467,13 @@ void AFLFuzzer::onBlockEnd(S2EExecutionState *state, uint64_t cur_loc, unsigned 
         ++all_tb_map[cur_loc];
     }
 
+    if (!g_s2e_cache_mode) {
+        return;
+    }
     // uEmu ends up with fuzzer
     if (unlikely(afl_con->AFL_return == END_uEmu)) {
-        getInfoStream() << "The total number of unqiue executed bb is " << unique_tb_num << "\n";
+        recordTBMap();
+        getInfoStream() << "The total number of unique executed tb is " << unique_tb_num << "\n";
         getInfoStream() << "==== Testing aborted by user via Fuzzer ====\n";
         g_s2e->getCorePlugin()->onEngineShutdown.emit();
         // Flush here just in case ~S2E() is not called (e.g., if atexit()

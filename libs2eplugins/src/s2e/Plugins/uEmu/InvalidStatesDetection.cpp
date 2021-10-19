@@ -330,7 +330,7 @@ void InvalidStatesDetection::onCacheModeMonitor(S2EExecutionState *state, uint64
                      << " interrupt flag = " << state->regs()->getInterruptFlag() << "\n";
 
     if (plgState->inctbnum(pc)) {
-        getInfoStream() << "The unqiue number of the executed basic blocks in currecnt state is "
+        getInfoStream() << "The unqiue number of the executed basic blocks in current state is "
                             << plgState->getnewtbnum() << " pc = " << hexval(pc) << "\n";
     }
 
@@ -480,7 +480,7 @@ void InvalidStatesDetection::onInvalidLoopDetection(S2EExecutionState *state, ui
         plgState->inctbnum2(pc); // only counter new tb in irq
     } else {
         if (plgState->inctbnum(pc)) {
-            getWarningsStream() << "InvalidStatesDetection in learning mode new tb num = " << plgState->getnewtbnum()
+            getInfoStream() << "InvalidStatesDetection in learning mode new tb num = " << plgState->getnewtbnum()
                                 << " pc = " << hexval(pc) << "\n";
         }
     }
@@ -522,7 +522,7 @@ void InvalidStatesDetection::onInvalidLoopDetection(S2EExecutionState *state, ui
         std::vector<uint32_t> loopregs = plgState->getcurloopregs();
         int k;
         for (k = 0; k < conregs.size(); ++k) {
-            if (loopregs[k] == conregs[k]) {
+            if (loopregs[k] == conregs[k] || k == 1) {
                 continue;
             } else {
                 break;
@@ -592,6 +592,10 @@ void InvalidStatesDetection::onInvalidLoopDetection(S2EExecutionState *state, ui
                 if (conregs[1] == 0) {
                     // only one tb in loop, kill directly if it is in symbolic mode
                     std::string reason_str = "Kill State due to Dead Loop (single tb): ";
+                    single_dead_loop[pc]++;
+                    if (single_dead_loop[pc] > 1) {
+                        kill_points.push_back(pc);
+                    }
                     onInvalidStatesKill(state, pc, DL1, reason_str);
                 } else {
                     getWarningsStream() << " cannot kill dead single loop in concrete mode" << plgState->getnewtbnum()
@@ -609,6 +613,8 @@ void InvalidStatesDetection::onInvalidLoopDetection(S2EExecutionState *state, ui
                 plgState->inserttbregs(conregs); // insert current tb before assign loop tb
                 plgState->assignloopregs(i);     // assign loop tb
                 plgState->setloopflag(true);     // next round compare loop tb first
+                getDebugStream(state) << " Same as the " << i << " current pc = " << hexval(pc)
+                                      << " cachereg pc = " << hexval(cacheregs[0]) << " \n";
                 return;
             }
         } else {
