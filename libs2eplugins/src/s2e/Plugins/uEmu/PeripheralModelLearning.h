@@ -170,6 +170,12 @@ public:
 
     sigc::signal<void, S2EExecutionState *, uint64_t /* phaddr */> onInvalidPHs;
 
+    sigc::signal<void, S2EExecutionState *, SymbolicHardwareAccessType /* type */,  uint64_t /* phaddr */,
+                 uint32_t  /* size */, uint64_t /* concreteValue */, void * /* opaque */> onSymbReadEvent;
+
+    sigc::signal<void, S2EExecutionState *, SymbolicHardwareAccessType /* type */,  uint64_t /* phaddr */,
+                 uint32_t  /* size */, uint64_t /* concreteValue */, void * /* opaque */> onSymbWriteEvent;
+
     PeripheralModelLearning(S2E *s2e) : Plugin(s2e) {
     }
 

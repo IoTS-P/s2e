@@ -1658,6 +1658,10 @@ static klee::ref<klee::Expr> symbhw_symbread(struct MemoryDesc *mr, uint64_t phy
 
     unsigned size = value->getWidth() / 8;
     uint64_t concreteValue = g_s2e_state->toConstantSilent(value)->getZExtValue();
+
+    // add emit to invoke dma plugin
+    hw->onSymbReadEvent.emit(g_s2e_state, SYMB_MMIO, physaddress, size, concreteValue, opaque);
+    
     if (!g_s2e_cache_mode) {
         return hw->onLearningMode(g_s2e_state, SYMB_MMIO, physaddress, size, concreteValue);
         // learningmodetest version
@@ -1665,6 +1669,7 @@ static klee::ref<klee::Expr> symbhw_symbread(struct MemoryDesc *mr, uint64_t phy
     } else {
         return hw->onFuzzingMode(g_s2e_state, SYMB_MMIO, physaddress, size, concreteValue);
     }
+
 }
 
 static void symbhw_symbwrite(struct MemoryDesc *mr, uint64_t physaddress, const klee::ref<klee::Expr> &value,
@@ -1678,6 +1683,12 @@ static void symbhw_symbwrite(struct MemoryDesc *mr, uint64_t physaddress, const 
     }
     // test version
     hw->onWritePeripheral(g_s2e_state, physaddress, value);
+
+    // add emit to invoke dma plugin
+    unsigned size = value->getWidth() / 8;
+    uint64_t concreteValue = g_s2e_state->toConstantSilent(value)->getZExtValue();
+    hw->onSymbWriteEvent.emit(g_s2e_state, SYMB_MMIO, physaddress, size, concreteValue, opaque);
+
 }
 
 void PeripheralModelLearning::onWritePeripheral(S2EExecutionState *state, uint64_t phaddr,

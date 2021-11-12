@@ -164,7 +164,7 @@ add_library(
     s2e/Plugins/uEmu/InvalidStatesDetection.cpp
     
     # test plugin
-    s2e/Plugins/TestPlugin/DmaRelatedMonitor.cpp
+    s2e/Plugins/TestPlugin/DmaMonitor.cpp
 
     # Support plugins
     s2e/Plugins/Support/KeyValueStore.cpp
