@@ -130,6 +130,11 @@ void s2e_write_ram_concrete(uint64_t host_address, const uint8_t *buf, uint64_t 
     in KLEE */
 void s2e_read_ram_concrete_check(uint64_t host_address, uint8_t *buf, uint64_t size);
 
+/** This function monitor RAM at host address
+ * 
+ */
+int s2e_monitor_ram_concrete(uint64_t phys_addr, uint64_t value, unsigned size, unsigned flags);
+
 void s2e_read_register_concrete(unsigned offset, uint8_t *buf, unsigned size);
 
 void s2e_write_register_concrete(unsigned offset, uint8_t *buf, unsigned size);
@@ -185,6 +190,9 @@ int se_is_vmem_symbolic(uint64_t vmem, unsigned size);
 
 int s2e_is_port_symbolic(uint64_t port);
 int s2e_is_mmio_symbolic(uint64_t physaddr, unsigned size);
+// #if defined(TARGET_ARM)
+int s2e_is_mem_monitor(uint64_t physaddr, unsigned size);
+// #endif
 int se_is_mmio_symbolic(struct MemoryDesc *mr, uint64_t address, uint64_t size);
 int se_is_mmio_symbolic_b(struct MemoryDesc *mr, uint64_t address);
 int se_is_mmio_symbolic_w(struct MemoryDesc *mr, uint64_t address);
@@ -228,6 +236,8 @@ void tcg_llvm_after_memory_access(target_ulong vaddr, uint64_t value, unsigned s
 uint64_t tcg_llvm_trace_mmio_access(uint64_t physaddr, uint64_t value, unsigned bytes, int isWrite);
 
 void tcg_llvm_write_mem_io_vaddr(uint64_t value, int reset);
+
+// void tcg_llvm_monitor_memory(uint64_t physaddr, uint64_t value, unsigned size, unsigned flags);
 
 #if defined(TARGET_I386) || defined(TARGET_X86_64)
 uint64_t tcg_llvm_trace_port_access(uint64_t port, uint64_t value, unsigned bits, int isWrite);

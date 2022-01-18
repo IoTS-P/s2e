@@ -17,6 +17,9 @@
 namespace s2e {
 namespace plugins {
 enum DmaStatus { Enable, Disable };
+enum pm_dma_transfer_dir_t { MEMTOPERI = 0, PERITOMEM, NODIR};// enum DMA transfer direction
+enum pm_dma_access_type_t { READ = 0, WRITE, READWRITE, NOACCESS};// enum type of access to descriptor pointers (dereference)
+
 namespace hw {
 typedef std::vector<uint8_t> ConcreteArray;
 typedef std::pair<uint64_t, uint64_t> SymbolicMmioRange;
@@ -47,7 +50,7 @@ public:
     }
 
     void initialize();
-    
+    bool isMemMonitor(uint64_t physAddr);
     void onSymbWrite(S2EExecutionState *state,
             SymbolicHardwareAccessType type,
             uint64_t address,
@@ -66,6 +69,7 @@ public:
 
     klee::ref<klee::Expr> onDetectingMode(S2EExecutionState *state, SymbolicHardwareAccessType type, uint64_t address,
                                          unsigned size, uint64_t concreteValue);
+    template <typename T> inline bool isMonitor(T m_address, T physAddr);
 
 };
 

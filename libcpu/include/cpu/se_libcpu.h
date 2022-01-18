@@ -154,6 +154,11 @@ struct se_libcpu_interface_t {
 
         void (*read_ram_concrete)(uint64_t host_address, void *buf, uint64_t size);
         void (*write_ram_concrete)(uint64_t host_address, const uint8_t *buf, uint64_t size);
+
+// #if defined(TARGET_ARM)
+        int (*monitor_ram_concrete)(uint64_t phys_addr, uint64_t value, unsigned size, unsigned flags);
+        int (*is_mem_monitor)(uint64_t phys_addr, unsigned size);
+// #endif
         void (*read_ram_concrete_check)(uint64_t host_address, uint8_t *buf, uint64_t size);
 
         uint64_t (*read_mem_io_vaddr)(int masked);
@@ -307,6 +312,8 @@ void tcg_llvm_before_memory_access(target_ulong vaddr, uint64_t value, unsigned 
 void tcg_llvm_after_memory_access(target_ulong vaddr, uint64_t value, unsigned size, unsigned flags, uintptr_t retaddr);
 
 uint64_t tcg_llvm_trace_mmio_access(uint64_t physaddr, uint64_t value, unsigned bytes, int isWrite);
+
+// void tcg_llvm_monitor_memory(uint64_t physaddr, uint64_t value, unsigned size, unsigned flags);
 
 void tcg_llvm_write_mem_io_vaddr(uint64_t value, int reset);
 

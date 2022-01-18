@@ -366,6 +366,11 @@ S2EExecutor::S2EExecutor(S2E *s2e, TCGLLVMTranslator *translator, InterpreterHan
     //__DEFINE_EXT_FUNCTION(s2e_on_tlb_miss)
     __DEFINE_EXT_FUNCTION(s2e_on_page_fault)
     __DEFINE_EXT_FUNCTION(s2e_is_port_symbolic)
+// #if defined(TARGET_ARM)
+    __DEFINE_EXT_FUNCTION(s2e_is_mem_monitor)
+    __DEFINE_EXT_FUNCTION(s2e_monitor_ram_concrete)
+    // __DEFINE_EXT_FUNCTION(tcg_llvm_memory_monitor)
+// #endif
     __DEFINE_EXT_FUNCTION(s2e_is_mmio_symbolic)
     __DEFINE_EXT_FUNCTION(se_is_mmio_symbolic_b)
     __DEFINE_EXT_FUNCTION(se_is_mmio_symbolic_w)

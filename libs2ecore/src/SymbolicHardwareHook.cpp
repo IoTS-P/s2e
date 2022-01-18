@@ -35,6 +35,7 @@ namespace s2e {
 
 SymbolicPortHook g_symbolicPortHook;
 SymbolicMemoryHook g_symbolicMemoryHook;
+SymbolicMemoryMonitorHook g_symbolicMemoryMonitorHook;
 
 void SymbolicHardwareHookEnableMmioCallbacks(bool enable) {
     g_s2e_enable_mmio_checks = enable;
@@ -47,6 +48,14 @@ int s2e_is_port_symbolic(uint64_t port) {
 
 int s2e_is_mmio_symbolic(uint64_t phys_addr, unsigned size) {
     return s2e::g_symbolicMemoryHook.symbolic(nullptr, phys_addr, size);
+}
+
+int s2e_is_mem_monitor(uint64_t phys_addr, unsigned size){
+    return s2e::g_symbolicMemoryMonitorHook.check(nullptr, phys_addr, size);
+}
+
+int s2e_monitor_ram_concrete(uint64_t phys_addr, uint64_t value, unsigned size, unsigned flags){
+    return s2e::g_symbolicMemoryMonitorHook.monitor(nullptr, phys_addr, value, size);
 }
 
 int se_is_mmio_symbolic(struct MemoryDesc *mr, uint64_t address, uint64_t size) {

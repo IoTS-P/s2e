@@ -868,6 +868,31 @@ void s2e_write_ram_concrete(uint64_t host_address, const uint8_t *buf, uint64_t 
 #endif
 }
 
+// void s2e_monitor_ram_concrete(uint64_t phy_address) {
+//     CPUArchState *env = g_s2e_state->regs()->getCpuState();
+//     if(!env->monitor_memory_flag)
+//         env->monitor_memory_flag = true;
+        
+
+// //     uint64_t host_address = g_s2e_state->mem()->getHostAddress(phy_address, s2e::VirtualAddress);
+// // #ifdef CONFIG_SYMBEX_MP
+// //     // CPUTLBRAMEntry *re = s2e_get_ram_tlb_entry(host_address);
+// //     g_s2e->getWarningsStream() << "------@@1@@------- " << host_address << '\n';
+// //     g_s2e_state->mem()->read(host_address, buf, size, s2e::HostAddress);
+// //     // g_s2e_state->mem()->transferRam(re, host_address, static_cast<uint8_t *>(buf), size, false, false, false);
+
+// // #else
+// //     g_s2e->getWarningsStream() << "------@@2@@------- " << phy_address << '\n';
+
+// //     g_s2e_state->mem()->read(host_address, buf, size, s2e::HostAddress);
+
+
+// //     // memcpy(buf, (const void *) host_address, size);
+
+// // #endif
+
+// }
+
 // To be used by GDB scripts to convert addresses
 uint64_t s2e_host_to_state_address(uint64_t hostaddr) {
     return (uint64_t) g_s2e_state->mem()->getConcreteBuffer(hostaddr, s2e::HostAddress);

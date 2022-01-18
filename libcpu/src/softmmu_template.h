@@ -141,6 +141,13 @@ DATA_TYPE glue(glue(io_read, SUFFIX), MMUSUFFIX)(CPUArchState *env, target_phys_
         CPUTLBEntry *e = env->se_tlb_current;
         if (likely(_se_check_concrete(e->objectState, addr & ~SE_RAM_OBJECT_MASK, DATA_SIZE))) {
             return glue(glue(ld, USUFFIX), _p)((uint8_t *) (addr + (e->se_addend)));
+
+            // add new monitor
+            // res = glue(glue(ld, USUFFIX), _p)((uint8_t *) (addr + (e->se_addend)));
+            // if(unlikely(g_sqi.mem.is_mem_monitor(physaddr, 5))){
+            //     g_sqi.mem.monitor_ram_concrete(physaddr, res, DATA_SIZE, 1);
+            // }
+            // return res;
         } else if (!tcg_is_dyngen_addr(retaddr)) {
             /**
              * Concretize any symbolic data touched by helpers.
@@ -150,6 +157,13 @@ DATA_TYPE glue(glue(io_read, SUFFIX), MMUSUFFIX)(CPUArchState *env, target_phys_
              * the helper had done.
              */
             return glue(glue(ld, USUFFIX), _raw)((uint8_t *) (addr + (e->addend)));
+
+            // add new monitor
+            // res = glue(glue(ld, USUFFIX), _raw)((uint8_t *) (addr + (e->addend)));
+            // if(unlikely(g_sqi.mem.is_mem_monitor(physaddr, 6))){
+            //     g_sqi.mem.monitor_ram_concrete(physaddr, res, DATA_SIZE, 1);
+            // }
+            // return res;
         } else {
             g_sqi.exec.switch_to_symbolic(retaddr);
         }
@@ -280,7 +294,11 @@ redo:
             env->se_tlb_current = tlb_entry;
 #endif
             res = glue(glue(io_read_chk, SUFFIX), MMUSUFFIX)(env, ioaddr, addr, retaddr);
-
+#ifdef CONFIG_SYMBEX
+            if(unlikely(g_sqi.mem.is_mem_monitor(addr, 9))){
+                g_sqi.mem.monitor_ram_concrete(addr, res, DATA_SIZE, 1);
+            }
+#endif
             INSTR_AFTER_MEMORY_ACCESS(addr, res, MEM_TRACE_FLAG_IO, retaddr);
 
         } else if (unlikely(((addr & ~SE_RAM_OBJECT_MASK) + DATA_SIZE - 1) >= SE_RAM_OBJECT_SIZE)) {
@@ -300,6 +318,11 @@ redo:
 
 #if defined(CONFIG_SYMBEX) && !defined(SYMBEX_LLVM_LIB) && defined(CONFIG_SYMBEX_MP)
             res = glue(glue(ld, USUFFIX), _p)((uint8_t *) (intptr_t)(addr + tlb_entry->se_addend));
+            // /*hhx:  this process is the most likely ld for dma address   */ 
+            // if(g_sqi.mem.is_mem_monitor(addr, 11)){
+            //     g_sqi.mem.monitor_ram_concrete(addr, res, DATA_SIZE, 1);
+            // }
+
 #else
             res = glue(glue(ld, USUFFIX), _p)((uint8_t *) (intptr_t)(addr + tlb_entry->addend));
 #endif
@@ -315,6 +338,13 @@ redo:
         goto redo;
     }
 
+#ifdef CONFIG_SYMBEX
+    // if(unlikely(g_sqi.mem.is_mem_symbolic(addr, DATA_SIZE) || env->monitor_memory_flag)){
+        // g_sqi.mem.monitor_ram_concre
+    if(unlikely(g_sqi.mem.is_mem_monitor(addr, DATA_SIZE))){
+        g_sqi.mem.monitor_ram_concrete(addr, res, DATA_SIZE, 1);
+    }
+#endif
     return res;
 }
 #endif /* STATIC_TRANSLATOR */

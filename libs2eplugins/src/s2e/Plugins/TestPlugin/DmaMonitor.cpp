@@ -22,16 +22,14 @@ namespace s2e {
 namespace plugins {
 namespace hw {
 
-// extern "C" {
-// static bool symbhw_is_mmio_symbolic(struct MemoryDesc *mr, uint64_t physaddr, uint64_t size, void *opaque);
-// }
+extern "C" {
+static bool symbhw_is_mem_monitor(struct MemoryDesc *mr, uint64_t physaddr, uint64_t size, void *opaque);
+}
 
-// static void onSymbRead(struct MemoryDesc *mr, uint64_t physaddress,
-//                                              const klee::ref<klee::Expr> &value, SymbolicHardwareAccessType type,
-//                                              void *opaque);
-
-// static void onSymbWrite(struct MemoryDesc *mr, uint64_t physaddress, const klee::ref<klee::Expr> &value,
-//                              SymbolicHardwareAccessType type, void *opaque);
+static bool symbhw_symbmonitor(struct MemoryDesc *mr, uint64_t physaddress,
+                                            uint64_t value,
+                                            unsigned size,
+                                            void *opaque);
 
 S2E_DEFINE_PLUGIN(DmaMonitor, "Example s2e plugin", "DmaMonitor", "PeripheralModelLearning");
 
@@ -87,8 +85,59 @@ void DmaMonitor::initialize() {
 
     // onInvalidStateDectionConnection->onInvalidStatesEvent.connect(
     //     sigc::mem_fun(*this, &PeripheralModelLearning::onInvalidStatesDetection));
+
+    g_symbolicMemoryMonitorHook = SymbolicMemoryMonitorHook(symbhw_is_mem_monitor, symbhw_symbmonitor, this);
 }
 
+
+
+static bool symbhw_is_mem_monitor(struct MemoryDesc *mr, uint64_t physaddr, uint64_t size, void *opaque) {
+    DmaMonitor *hw = static_cast<DmaMonitor *>(opaque);
+    hw->getWarningsStream(g_s2e_state) << "------isMemMonitor------- " << hexval(physaddr) << "--size--"<< size << '\n';
+    return hw->isMemMonitor(physaddr);
+}
+
+
+
+static bool symbhw_symbmonitor(struct MemoryDesc *mr, uint64_t physaddress,
+                                            uint64_t value,
+                                            unsigned size,
+                                            void *opaque){
+    DmaMonitor *hw = static_cast<DmaMonitor *>(opaque);
+    // physaddress = 0x80010b0;
+    // if (DebugSymbHw) {
+    hw->getWarningsStream(g_s2e_state) << "------address------ " << hexval(physaddress) <<
+        "------size------ " << hexval(size) << "------value------ " << hexval(value) << "\n";
+    // }
+
+    // unsigned size = value->getWidth() / 8;
+    // uint64_t concreteValue = g_s2e_state->toConstantSilent(value)->getZExtValue();
+
+    return true;
+    // return hw->onDetectingMode(g_s2e_state, SYMB_MMIO, physaddress, size, concreteValue);
+}
+
+bool DmaMonitor::isMemMonitor(uint64_t physaddress) {
+    uint64_t m_address = 0x2000000C;
+    // s2e()->getWarningsStream() << "------isMemMonitor------- " << hexval(physaddress) << '\n';
+    return isMonitor(physaddress, m_address);
+}
+
+template <typename T> inline bool DmaMonitor::isMonitor(T physaddress, T m_address) {
+    // for (auto &p : ports) {
+    //     if (port >= p.first && port <= p.second) {
+    //         return true;
+    //     }
+    // }
+    // if(physaddress == m_address){
+        
+    if(physaddress == m_address){
+        s2e()->getWarningsStream() << "------Monitor at------- " << hexval(physaddress) << '\n';
+        return true;
+    }
+
+    return true;
+}
 
 void DmaMonitor::onSymbWrite(S2EExecutionState *state, SymbolicHardwareAccessType type, uint64_t address,
                                          unsigned size, uint64_t concreteValue, void *opaque) {
@@ -96,6 +145,7 @@ void DmaMonitor::onSymbWrite(S2EExecutionState *state, SymbolicHardwareAccessTyp
     // This function get Symbolic write info and sent the info to onDetectingMode
     DmaMonitor *hw = static_cast<DmaMonitor *>(opaque);
     uint64_t physaddress = address;
+    // uint64_t tmpaddress = address;
     
     // ARM MMIO range 0x20000000-0x40000000
     SymbolicMmioRange m;
@@ -109,19 +159,21 @@ void DmaMonitor::onSymbWrite(S2EExecutionState *state, SymbolicHardwareAccessTyp
     mDma1.first = 0x40020000;
     mDma1.second = 0x400203FF;
 
-    s2e()->getWarningsStream() << "------1------- " << hexval(address) << '\n';
+    // s2e()->getWarningsStream() << "------1------- " << hexval(address) << '\n';
 
 
-    // if ((concreteValue >= m.first && concreteValue <= m.second)|| physaddress == tmpaddress){
-    if ((physaddress >= mDma1.first && physaddress <= mDma1.second)|| physaddress == 0x40005800|| physaddress == 0x20000028){ 
-        s2e()->getWarningsStream() << "------2------- " << hexval(address) << '\n';
-        s2e()->getWarningsStream() << "------3------- " << hexval(concreteValue) << '\n';
+    // if (concreteValue >= m.first && concreteValue <= m.second){
+    if (physaddress >= mDma1.first && physaddress <= mDma1.second){ 
+        hw->getWarningsStream(g_s2e_state) << "------DMA configure found-------" << '\n';
+        s2e()->getWarningsStream() << "------DMA_CPARx found------- " << hexval(address) << '\n';
+        s2e()->getWarningsStream() << "------DMA_CPARx value------- " << hexval(concreteValue) << '\n';
         hw->onDetectingMode(g_s2e_state, SYMB_MMIO, physaddress, size, concreteValue);
     }
 
-    if(physaddress == 0x20000028){
-        s2e()->getWarningsStream() << "------5------- " << hexval(address) << '\n';
-        s2e()->getWarningsStream() << "------6------- " << hexval(concreteValue) << '\n';
+    if (concreteValue >= m.first && concreteValue <= m.second){ 
+        hw->getWarningsStream(g_s2e_state) << "------DMA configure found-------" << '\n';
+        s2e()->getWarningsStream() << "------DMA_CMARx found------- " << hexval(address) << '\n';
+        s2e()->getWarningsStream() << "------DMA_CMARx value------- " << hexval(concreteValue) << '\n';
     }
 
 
@@ -152,8 +204,6 @@ void DmaMonitor::onSymbRead(S2EExecutionState *state, SymbolicHardwareAccessType
 
 }
 
-
-
 klee::ref<klee::Expr> DmaMonitor::onDetectingMode(S2EExecutionState *state, SymbolicHardwareAccessType type,
                                                               uint64_t address, unsigned size, uint64_t concreteValue) {
     
@@ -175,10 +225,14 @@ klee::ref<klee::Expr> DmaMonitor::onDetectingMode(S2EExecutionState *state, Symb
 
     ss << hexval(address) << "@" << hexval(pc);
 
-    ss << "@@@@@@@";
+    ss << " " << "@@@@@@@"<< " ";
 
     getWarningsStream(g_s2e_state) << ss.str() << " size " << hexval(size) << " value=" << hexval(concreteValue)
                                 << " sym=" << (createVariable ? "yes" : "no") << "\n";
+
+    if(concreteValue == 0x6ac1){
+        ss << "dma start " << "@@@@@@@"<< " ";
+    }
 
     if (createVariable) {
         ConcreteArray concolicValue;
@@ -188,6 +242,8 @@ klee::ref<klee::Expr> DmaMonitor::onDetectingMode(S2EExecutionState *state, Symb
     } else {
         return klee::ExtractExpr::create(klee::ConstantExpr::create(concreteValue, 64), 0, size * 8);
     }
+
+
 }
 
 

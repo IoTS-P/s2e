@@ -150,10 +150,67 @@ public:
     }
 };
 
+class SymbolicMemoryMonitorHook {
+public:
+    typedef bool (*SYMB_MEM_CHECK)(struct MemoryDesc *mr, uint64_t physaddress, uint64_t size, void *opaque);
+    // typedef klee::ref<klee::Expr> (*SYMB_MEM_MONITOR)(struct MemoryDesc *mr, uint64_t physaddress,
+    //                                                const klee::ref<klee::Expr> &value,
+    //                                                void *opaque);
+    typedef bool (*SYMB_MEM_MONITOR)(struct MemoryDesc *mr, uint64_t physaddress,
+                                                uint64_t value,
+                                                unsigned size,
+                                                void *opaque);
+private:
+    void *m_opaque;
+    SYMB_MEM_CHECK m_isMonitor;
+    SYMB_MEM_MONITOR m_monitor;
+
+public:
+    SymbolicMemoryMonitorHook(SYMB_MEM_CHECK isMonitorCb, SYMB_MEM_MONITOR monitor,  void *opaque) {
+        m_opaque = opaque;
+        m_isMonitor = isMonitorCb;
+        m_monitor = monitor;
+    }
+
+    SymbolicMemoryMonitorHook() {
+        m_opaque = nullptr;
+        m_isMonitor = nullptr;
+        m_monitor = nullptr;
+    }
+
+    bool hasHook() const {
+        return m_isMonitor != nullptr;
+    }
+
+    inline bool check(struct MemoryDesc *mr, uint64_t physAddress, uint64_t size) const {
+        if (m_isMonitor) {
+            return m_isMonitor(mr, physAddress, size, m_opaque);
+        }
+        return false;
+    }
+
+    // inline klee::ref<klee::Expr> monitor(struct MemoryDesc *mr, uint64_t physAddress,
+    //                                 //   const klee::ref<klee::Expr> &concolicValue
+    //                                 unsigned size;
+    //                                   ) const {
+    inline bool monitor(struct MemoryDesc *mr, uint64_t physAddress,
+                                    uint64_t value,
+                                    unsigned size) const {
+        assert(m_monitor);
+        return m_monitor(mr, physAddress, value, size, m_opaque);
+    }
+
+    inline bool readable() const {
+        return m_monitor != nullptr;
+    }
+
+};
+
 void SymbolicHardwareHookEnableMmioCallbacks(bool enable);
 
 extern SymbolicPortHook g_symbolicPortHook;
 extern SymbolicMemoryHook g_symbolicMemoryHook;
+extern SymbolicMemoryMonitorHook g_symbolicMemoryMonitorHook;
 } // namespace s2e
 
 #endif
