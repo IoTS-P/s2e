@@ -28,7 +28,17 @@ typedef llvm::SmallVector<SymbolicMmioRange, 4> SymbolicMmioRanges;
 
 typedef std::pair<uint32_t /* DmaCCRaddress */, uint32_t /* pc */> Dma;
 typedef std::map<uint32_t /* DmaCCRaddress */, uint32_t /* kind of type */> TypeFlagDmaMap;
-// typedef std::map
+
+typedef std::vector<uint32_t> MemoryReadArray;
+typedef std::vector<MemoryReadArray> MemoryReadArrays;
+
+/* Dma description */
+typedef std::pair<uint32_t /* id */, MemoryReadArray /* DmaCCRaddress */> MemoryReadArrays;
+typedef std::map<uint32_t /* id */, uint32_t/* End Address */> EndAddressMap;
+typedef std::map<uint32_t /* id */, uint32_t/* DATA_SIZE */> DataSizeMap;
+typedef std::map<uint32_t /* id */, uint32_t/* size */> MemoryReadArraySizeMap;
+
+
 
 // typedef std::pair<std::pair<uint32_t /* peripheraladdress */, uint32_t /* memoryaddress */>, uint32_t /* size */> ConfigureDMA;
 // typedef std::pair<uint32_t /* peripheraladdress */, uint32_t /* memoryaddress */> DmaAddress;

@@ -37,6 +37,8 @@ namespace {
 class DmaMonitorState : public PluginState {
 private:
     int m_flag;
+    uint32_t t2_max_context;
+    MemoryReadArrays memory_read_arrays;
 
 public:
     DmaMonitorState() {
@@ -55,13 +57,11 @@ public:
         return new DmaMonitorState(*this);
     }
 
-    // void increment() {
-    //     ++m_count;
+    // void update_memory_read_arrays(MemoryReadArrays memory_read_arrays, uint32_t startAddress){
+        
     // }
 
-    // int get() {
-    //     return m_count;
-    // }
+
 };
 }
 
@@ -85,7 +85,9 @@ void DmaMonitor::initialize() {
 
     // onInvalidStateDectionConnection->onInvalidStatesEvent.connect(
     //     sigc::mem_fun(*this, &PeripheralModelLearning::onInvalidStatesDetection));
-
+    s2e()->getCorePlugin()->onTranslateInstructionStart.connect(
+        sigc::mem_fun(*this, &DmaMonitor::onTranslateInstruction));
+    
     g_symbolicMemoryMonitorHook = SymbolicMemoryMonitorHook(symbhw_is_mem_monitor, symbhw_symbmonitor, this);
 }
 
@@ -96,8 +98,6 @@ static bool symbhw_is_mem_monitor(struct MemoryDesc *mr, uint64_t physaddr, uint
     hw->getWarningsStream(g_s2e_state) << "------isMemMonitor------- " << hexval(physaddr) << "--size--"<< size << '\n';
     return hw->isMemMonitor(physaddr);
 }
-
-
 
 static bool symbhw_symbmonitor(struct MemoryDesc *mr, uint64_t physaddress,
                                             uint64_t value,
@@ -242,12 +242,14 @@ klee::ref<klee::Expr> DmaMonitor::onDetectingMode(S2EExecutionState *state, Symb
     } else {
         return klee::ExtractExpr::create(klee::ConstantExpr::create(concreteValue, 64), 0, size * 8);
     }
-
-
 }
 
-
-
+void DmaMonitor::onTranslateInstruction(ExecutionSignal *signal,
+                                                S2EExecutionState *state,
+                                                TranslationBlock *tb,
+                                                uint64_t pc) {
+    
+}
 
 } // namespace hw
 } // namespace plugins 
