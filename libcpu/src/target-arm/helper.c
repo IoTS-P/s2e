@@ -336,10 +336,6 @@ void cpu_state_reset(CPUARMState *env) {
      */
     tb_flush(env);
     env->kvm_irq = -1;
-
-    /* flag 
-    */
-    env->monitor_memory_flag = false;
 }
 
 // static int vfp_gdb_get_reg(CPUARMState *env, uint8_t *buf, int reg) {

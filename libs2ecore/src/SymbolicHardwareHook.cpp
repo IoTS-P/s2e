@@ -54,8 +54,8 @@ int s2e_is_mem_monitor(uint64_t phys_addr, unsigned size){
     return s2e::g_symbolicMemoryMonitorHook.check(nullptr, phys_addr, size);
 }
 
-int s2e_monitor_ram_concrete(uint64_t phys_addr, uint64_t value, unsigned size, unsigned flags){
-    return s2e::g_symbolicMemoryMonitorHook.monitor(nullptr, phys_addr, value, size);
+int s2e_monitor_ram_concrete(uint64_t phys_addr, uint64_t value, unsigned size, unsigned flag){
+    return s2e::g_symbolicMemoryMonitorHook.monitor(nullptr, phys_addr, value, size, flag);
 }
 
 int se_is_mmio_symbolic(struct MemoryDesc *mr, uint64_t address, uint64_t size) {

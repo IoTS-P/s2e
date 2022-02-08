@@ -159,6 +159,7 @@ public:
     typedef bool (*SYMB_MEM_MONITOR)(struct MemoryDesc *mr, uint64_t physaddress,
                                                 uint64_t value,
                                                 unsigned size,
+                                                unsigned flag,
                                                 void *opaque);
 private:
     void *m_opaque;
@@ -195,9 +196,10 @@ public:
     //                                   ) const {
     inline bool monitor(struct MemoryDesc *mr, uint64_t physAddress,
                                     uint64_t value,
-                                    unsigned size) const {
+                                    unsigned size,
+                                    unsigned flag) const {
         assert(m_monitor);
-        return m_monitor(mr, physAddress, value, size, m_opaque);
+        return m_monitor(mr, physAddress, value, size, flag, m_opaque);
     }
 
     inline bool readable() const {

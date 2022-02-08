@@ -313,8 +313,6 @@ void tcg_llvm_after_memory_access(target_ulong vaddr, uint64_t value, unsigned s
 
 uint64_t tcg_llvm_trace_mmio_access(uint64_t physaddr, uint64_t value, unsigned bytes, int isWrite);
 
-// void tcg_llvm_monitor_memory(uint64_t physaddr, uint64_t value, unsigned size, unsigned flags);
-
 void tcg_llvm_write_mem_io_vaddr(uint64_t value, int reset);
 
 #if defined(TARGET_I386) || defined(TARGET_X86_64)

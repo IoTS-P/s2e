@@ -212,11 +212,6 @@ typedef struct CPUARMState {
     uint8_t timer_interrupt_disabled;
     int interrupt_flag; //indicate in interrupt or not
 
-     /* For DMA */
-    bool monitor_memory_flag; //indicate in memory monitor or not
-    uint32_t monitor_memory_address; //the address used for dma monitor
-    uint32_t monitor_memory_size; //the size used for dma monitor
-
 } CPUARMState;
 CPUARMState *cpu_arm_init(const char *cpu_model);
 void do_cpu_arm_init(CPUARMState *env);

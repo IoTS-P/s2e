@@ -252,37 +252,6 @@ static void handlerOnTlbMiss(Executor *executor, ExecutionState *state, klee::KI
 }
 #endif
 
-// static void handlerMonitorMem(Executor *executor, ExecutionState *state, klee::KInstruction *target,
-//                                    std::vector<klee::ref<klee::Expr>> &args) {
-//     assert(args.size() == 4);  
-
-//     auto symbolicPhysAddress = args[0];
-//     if(!g_symbolicMemoryMonitorHook.hasHook()){
-//         // Avoid forced concretizations if symbolic hardware is not enabled
-//         state->bindLocal(target, symbolicPhysAddress);
-//         return;
-//     }
-
-//     uint64_t physAddress = state->toConstant(symbolicPhysAddress, "MEMORY address")->getZExtValue();
-
-//     klee::ref<Expr> value = args[1];
-
-//     unsigned size = cast<klee::ConstantExpr>(args[2])->getZExtValue();   
-//     unsigned size2;
-//     size2 = size;
-
-//     if (!g_symbolicMemoryMonitorHook.symbolic(nullptr, physAddress, size)) {
-//         state->bindLocal(target, value);
-//         return;
-//     }
-//     klee::ref<Expr> resizedValue = klee::ExtractExpr::create(value, 0, size * 8);
-
-//     klee::ref<Expr> ret = g_symbolicMemoryMonitorHook.monitor(nullptr, physAddress, resizedValue);
-//     assert(ret->getWidth() == resizedValue->getWidth());
-//     ret = klee::ZExtExpr::create(ret, klee::Expr::Int64);
-//     state->bindLocal(target, ret);
-// }
-
 static void handlerTraceMmioAccess(Executor *executor, ExecutionState *state, klee::KInstruction *target,
                                    std::vector<klee::ref<klee::Expr>> &args) {
     assert(args.size() == 4);
@@ -366,7 +335,6 @@ static Handler s_handlers[] = {{"tcg_llvm_write_mem_io_vaddr", handlerWriteMemIo
                                {"tcg_llvm_after_memory_access", handlerAfterMemoryAccess, nullptr},
                                {"tcg_llvm_trace_mmio_access", handlerTraceMmioAccess, nullptr},
                                {"tcg_llvm_fork_and_concretize", handleForkAndConcretize, nullptr},
-                            //    {"tcg_llvm_monitor_memory", handlerMonitorMem, nullptr},
 #if defined(TARGET_I386) || defined(TARGET_X86_64)
                                {"tcg_llvm_trace_port_access", handlerTracePortAccess, nullptr},
                                {"tcg_llvm_get_value", handleGetValue, nullptr},
