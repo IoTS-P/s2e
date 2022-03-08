@@ -35,7 +35,7 @@ namespace {
 class DmaMonitorState : public PluginState {
 private:
     int m_flag;
-    // uint32_t t2_max_context;
+    
     // MemoryReadArrays memory_read_arrays;
     MemRangeMap mem;
     // MemoryAccessArrays m_mem_access_arrays;
@@ -56,17 +56,19 @@ public:
         return new DmaMonitorState(*this);
     }
 
-    // void update_memory_read_arrays(MemoryReadArrays memory_read_arrays, uint32_t startAddress){
-
-    // }
-
+    // capture the address configure 
     bool is_Dma(uint64_t value, MemRangeMap mem) {
-        for (MemRangeMap::iterator it = mem.begin(); it != mem.end(); it++) {
-            if (value >= it->second.first && value <= it->second.second) {
-                return true;
-            }
+        // for (MemRangeMap::iterator it = mem.begin(); it != mem.end(); it++) {
+        //     if (value >= it->second.first && value <= it->second.second) {
+        //         return true;
+        //     }
+        // }
+        bool addressDMAflag = false;
+        if(value >= mem[TRAM].first && value <= mem[TRAM].second){
+            addressDMAflag = true;
         }
-        return false;
+
+        return addressDMAflag;
     }
 
     PointerType get_pointer_type(uint64_t value, MemRangeMap mem) {
@@ -149,8 +151,6 @@ void DmaMonitor::initialize() {
         exit(-1);
     }
 
-    m_address = (uint64_t) s2e()->getConfig()->getInt(getConfigKey() + ".addressToTrack");
-
     // This indicates that our plugin is interested in monitoring instruction translation.
     // For this, the plugin registers a callback with the onPeripheralModelLearning signal.
 
@@ -192,53 +192,14 @@ bool DmaMonitor::parseConfigIoT(void) {
 
 static bool symbhw_is_mem_monitor(struct MemoryDesc *mr, uint64_t physaddr, uint64_t size, void *opaque) {
     DmaMonitor *hw = static_cast<DmaMonitor *>(opaque);
-    // hw->getWarningsStream(g_s2e_state) << "------isMemMonitor------- " << hexval(physaddr) << "--size--"<< size <<
-    // '\n';
     return hw->isMemMonitor(physaddr);
 }
 
 static bool symbhw_symbmonitor(struct MemoryDesc *mr, uint64_t physaddress, uint64_t value, unsigned size,
                                unsigned flag, void *opaque) {
     DmaMonitor *hw = static_cast<DmaMonitor *>(opaque);
-    // physaddress = 0x80010b0;
 
-    // for(i=0; i<number_dma_pointers; i++)
-    //     {
-    //         //No span supported for this type of descriptor
-    //         //check that pointer has not been used previously
-    //         if(dma_pointers[i].id_ctp==0 && dma_pointers[i].value==physaddress)  //id_ctp is used to verify if pointer has been associated with another descriptor
-    //         {
-    //             hw->getWarningsStream(g_s2e_state) << "DMA Descriptor V1: base *"<< hexval(dma_pointers[i].base) << 
-    //             "p_A:*" << hexval(dma_pointers[i].register_addr) << "->" << hexval(dma_pointers[i].value) << "\n";
-    //             if(number_dma_descriptors<MAX_DMA_DESC)
-    //             {
-    //                 //arbitrary assigment to peri or mem not necessarily represents a pripheral or memory address, 
-    //                 //it is just a differentition of names between pointers. This is similar to STM32F103 DMA hardware implementation                               
-                    
-    //                 dma_descriptors[number_dma_descriptors].id_pointer_peri=i; // both pointers are equal on this type of descriptor
-    //                 dma_descriptors[number_dma_descriptors].id_pointer_mem=i;                                        
-    //                 dma_descriptors[number_dma_descriptors].number_beats=0;
-    //                 dma_descriptors[number_dma_descriptors].t_access_mem=NOACCESS;
-    //                 dma_descriptors[number_dma_descriptors].t_access_peri=NOACCESS;
-    //                 dma_descriptors[number_dma_descriptors].exc_num_dma= NONUM;
-    //                 dma_descriptors[number_dma_descriptors].version=1;
-                
-    //                 dma_descriptors[number_dma_descriptors].pointer_peri=dma_pointers[i];
-    //                 dma_descriptors[number_dma_descriptors].pointer_mem=dma_pointers[i];
-
-    //                 number_dma_descriptors++;       
-    //                  //here execution should terminate, model needs to be updated
-    //                  //New DMA descriptor found
-    //             }
-    //             else
-    //             {
-    //                 hw->getWarningsStream(g_s2e_state) <<"Max number of DMA descriptors reached!!"<<"\n";
-    //             }                                
-    //         }
-    //     }
-
-
-    hw->getWarningsStream(g_s2e_state) << "------Go into SizeLearning Mode------ " << "\n";
+    hw->getDebugStream(g_s2e_state) << "------Go into SizeLearning Mode------ " << "\n";
 
 
     hw->onSizeLearningMode(g_s2e_state, physaddress, size, value, flag);
@@ -255,7 +216,7 @@ void DmaMonitor::onSizeLearningMode(S2EExecutionState *state, uint64_t address, 
     uint64_t beatsize = (uint64_t)size;
     bool cflag = true;
 
-    s2e()->getWarningsStream(g_s2e_state) << "------address------ " << hexval(address) << "------size------ "
+    s2e()->getDebugStream(g_s2e_state) << "------address------ " << hexval(address) << "------size------ "
                                     << hexval(beatsize) << "------value------ " << hexval(concreteValue) << "\n";
     if(m_mem_access.empty()){
         // plgState->init_mem_access_array(address, size, concreteValue, flag, type);
@@ -269,10 +230,16 @@ void DmaMonitor::onSizeLearningMode(S2EExecutionState *state, uint64_t address, 
         if(address == (it->second + m_mem_access_beatsize[it->first]) && (m_mem_access_check.find(address) == m_mem_access_check.end())){
             it->second = address;
             cflag = false;
-            s2e()->getWarningsStream(g_s2e_state) << hexval(it->second + m_mem_access_beatsize[it->first]) << "\n";
+            // s2e()->getWarningsStream(g_s2e_state) << hexval(it->second + m_mem_access_beatsize[it->first]) << "\n";
         }
-        s2e()->getWarningsStream(g_s2e_state) << "------address pair------ " << hexval(it->first) << "----------> "
+
+        if(!m_CMARx_found.empty()){
+            for(DmaAddress::iterator itx=m_CMARx_found.begin(); itx!=m_CMARx_found.end(); itx++){
+                if(*itx == it->first)
+                    s2e()->getWarningsStream(g_s2e_state) << "------address pair------ " << hexval(it->first) << "----------> "
                                     << hexval(it->second)  << "\n";
+            }
+        }
     }
 
     if(cflag){
@@ -283,19 +250,38 @@ void DmaMonitor::onSizeLearningMode(S2EExecutionState *state, uint64_t address, 
 
 }
 
-
-
 bool DmaMonitor::isMemMonitor(uint64_t physaddress) {
     uint64_t m_address = physaddress;
     return isMonitor(m_mem_range, m_address);
 }
 
+// a more aggressive filter
+// template <typename T, typename U> inline bool DmaMonitor::isMonitor(T mem, U address) {
+//     // for (auto &p : ports) {
+//     //     if (port >= p.first && port <= p.second) {
+//     //         return true;
+//     //     }
+//     // }
+//     bool monitorflag = false;
+//     bool flag = false; // check whether the address has been accessed or not
+
+//     for(MemoryMonitorArray::iterator it=m_mem_array.begin(); it!=m_mem_array.end();it++){
+//         if(address == (*it)){
+//             flag = true;
+//             return monitorflag;
+//         }
+//     }
+
+//     if(!flag && (address >= mem[TRAM].first && address<= mem[TRAM].second) ){
+//         m_mem_array.push_back(address);
+//         monitorflag = true;
+//     }
+
+//     return monitorflag;
+// } 
+
+// activate when address in ram
 template <typename T, typename U> inline bool DmaMonitor::isMonitor(T mem, U address) {
-    // for (auto &p : ports) {
-    //     if (port >= p.first && port <= p.second) {
-    //         return true;
-    //     }
-    // }
     if (address >= mem[TRAM].first && address<= mem[TRAM].second) {
         return true;
     }
@@ -308,27 +294,24 @@ void DmaMonitor::onSymbWrite(S2EExecutionState *state, SymbolicHardwareAccessTyp
     // This function get Symbolic write info and sent the info to onDetectingMode
     DmaMonitor *hw = static_cast<DmaMonitor *>(opaque);
     uint64_t physaddress = address;
+    bool flag = true;
 
     if (plgState->is_Dma(concreteValue, m_mem_range)) {
         hw->getWarningsStream(g_s2e_state) << "------DMA configure found-------" << '\n';
         s2e()->getWarningsStream() << "------DMA_CMARx address------- " << hexval(address) << '\n';
         s2e()->getWarningsStream() << "------DMA_CMARx value------- " << hexval(concreteValue) << '\n';
+
+
+        for(DmaAddress::iterator it=m_CMARx_found.begin(); it!=m_CMARx_found.end(); it++){
+            if((*it)==concreteValue)
+                flag = false;
+        }
+
+        if(flag)
+            m_CMARx_found.push_back(concreteValue);
+            
         hw->onDetectingMode(g_s2e_state, SYMB_DMA, physaddress, size, concreteValue);
     }
-
-    // The plugins can arbitrarily modify/observe the current execution state via the execution state pointer.
-    // Plugins can also call the s2e() method to use the S2E API
-    // This macro declares the plgState variable of type DmaMonitorState.
-    // It automatically takes care of retrieving the right plugin state attached to the specified execution state
-    // DECLARE_PLUGINSTATE(DmaMonitorState, state);
-
-    // Increment the count
-    // plgState->increment();
-
-    // // Trigger the event
-    // if ((plgState->get() % 10) == 0) {
-    //     onPeriodicEvent.emit(state, pc);
-    // }
 }
 
 void DmaMonitor::onSymbRead(S2EExecutionState *state, SymbolicHardwareAccessType type, uint64_t address, unsigned size,
@@ -362,6 +345,7 @@ void DmaMonitor::onDetectingMode(S2EExecutionState *state, SymbolicHardwareAcces
 
     ss << hexval(address) << "@" << hexval(pc);
 
+    
     getWarningsStream(g_s2e_state) << ss.str() << " size " << hexval(size) << " value=" << hexval(concreteValue)
                                    << " sym=" << (createVariable ? "yes" : "no") << "\n";
 

@@ -71,30 +71,19 @@ typedef struct {
     int version;     // 1: single pointer (NRF52832) , 2: Double pointer (F103, F429)
 } pm_DMA_desc;
 
+typedef std::vector<uint64_t> DmaAddress;
 
 typedef std::pair<uint64_t, uint64_t> MemRange;
 typedef std::map<PointerType, MemRange> MemRangeMap;
-
+typedef std::vector<uint64_t> MemoryMonitorArray; // the addresses related to DMA
 typedef std::map<uint64_t, bool> MemoryAccessCheck;
 // typedef std::vector<MemAccessDesc> MemoryAccessArrays;
 
 typedef std::map<uint64_t /* start addr */, uint64_t /* end addr */> MemAccessMap;
 typedef std::map<uint64_t /* start addr */, uint64_t /* beatsize */> MemAccessBeatsizeMap;
 
-
-// typedef struct{
-//     MemoryAccessArray mem_array;
-//     int beat_size;              // number of "beats" to be transfered  a beat could be 8, 16, 32 bit
-//     int number_beats;           // beat_size x number_beats= transfer size in bytes
-//     PointerType type;     // type of pointer according to major memory areas Peripheral, RAM, Flash
-//     pm_dma_access_type_t t_access_mem; 
-//     uint64_t start_address;
-//     uint64_t end_address;
-// }MemAccessDesc;
-
 class DmaMonitor : public Plugin {
     S2E_PLUGIN
-    uint64_t m_address;
 
 private:
     SymbolicMmioRanges m_mmio;
@@ -103,23 +92,9 @@ private:
     MemAccessMap m_mem_access; // record all mem access 
     MemAccessBeatsizeMap m_mem_access_beatsize;  // record start address related access beatsize
     MemoryAccessCheck m_mem_access_check; // record whether the address has been accessed before
+    MemoryMonitorArray m_mem_array;
+    DmaAddress m_CMARx_found;
     PeripheralModelLearning *onPeripheralModelLearningConnection;
-    
-    /* DMA descriptor identification varibles*/
-
-    // pm_DMA_desc descriptor_test = {0, 0, 0, NOACCESS, NOACCESS, NODIR, 0};
-    // pm_DMA_desc dma_descriptors[MAX_DMA_DESC];
-    // pm_DMA_pointers dma_pointers[MAX_POINTERS];
-    // pm_dma_buffer_beat dma_buffer_addresses[MAX_DMA_BEAT_ADDRESS];
-
-    // // canaries
-    // pm_dma_canary canaries[NUMCANARIES];
-    // int number_canaries = 0;
-
-    // int number_dma_buff_addreses = 0;
-    // int number_dma_pointers = 0;
-    // int number_dma_descriptors = 0;
-    // PointerType pointer_type;
 
 public:
     DmaMonitor(S2E *s2e) : Plugin(s2e) {
