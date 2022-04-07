@@ -166,6 +166,9 @@ add_library(
     # test plugin
     s2e/Plugins/TestPlugin/DmaMonitor.cpp
 
+    #DMA ETH plugins
+    s2e/Plugins/DMA_ETHMonitor/DmaEthMonitor.cpp
+
     # Support plugins
     s2e/Plugins/Support/KeyValueStore.cpp
 
