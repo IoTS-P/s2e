@@ -20,6 +20,9 @@
 
 TARGETS := $(wildcard *-softmmu)
 
+S2E_PREFIX?=$(CURDIR)/opt
+S2E_BUILD:=$(CURDIR)
+
 all: $(TARGETS)
 .PHONY: $(TARGETS)
 
@@ -28,3 +31,9 @@ $(TARGETS):
 
 clean:
 	for f in $(TARGETS); do $(MAKE) -C $$f clean; done
+install:
+	install $(S2E_BUILD)/libs2e-release/arm-softmmu/libs2e.so $(S2E_PREFIX)/share/libs2e/libs2e-arm.so
+	install $(S2E_BUILD)/libs2e-release/arm-s2e-softmmu/op_helper.bc.arm $(S2E_PREFIX)/share/libs2e/
+	install $(S2E_BUILD)/libs2e-release/arm-s2e-softmmu/libs2e.so $(S2E_PREFIX)/share/libs2e/libs2e-arm-s2e.so
+	install $(S2E_BUILD)/libs2e-release/arm-s2e_sp-softmmu/op_helper_sp.bc.arm $(S2E_PREFIX)/share/libs2e/
+	install $(S2E_BUILD)/libs2e-release/arm-s2e_sp-softmmu/libs2e.so $(S2E_PREFIX)/share/libs2e/libs2e-arm-s2e_sp.so
