@@ -19,7 +19,7 @@ void DmaEthMonitor::initialize() {
 
     onPeripheralModelLearningConnection = s2e()->getPlugin<PeripheralModelLearning>();
     onPeripheralModelLearningConnection->onSymbWriteEvent.connect(sigc::mem_fun(*this, &DmaEthMonitor::onSymbWrite));
-    onPeripheralModelLearningConnection->onSymbReadEvent.connect(sigc::mem_fun(*this, &DmaEthMonitor::onSymbRead));
+    // onPeripheralModelLearningConnection->onSymbReadEvent.connect(sigc::mem_fun(*this, &DmaEthMonitor::onSymbRead));
 
     /* Initialize the register for DMA ETH */
     // set RCC HSERDY 
