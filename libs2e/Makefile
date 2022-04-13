@@ -20,8 +20,8 @@
 
 TARGETS := $(wildcard *-softmmu)
 
-S2E_PREFIX?=$(CURDIR)/opt
-S2E_BUILD:=$(CURDIR)
+S2E_PREFIX?=$(CURDIR)/../opt
+S2E_BUILD:=$(CURDIR)/../
 
 all: $(TARGETS)
 .PHONY: $(TARGETS)

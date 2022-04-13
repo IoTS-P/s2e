@@ -21,7 +21,7 @@ void DmaEthMonitor::initialize() {
     onPeripheralModelLearningConnection->onSymbWriteEvent.connect(sigc::mem_fun(*this, &DmaEthMonitor::onSymbWrite));
     // onPeripheralModelLearningConnection->onSymbReadEvent.connect(sigc::mem_fun(*this, &DmaEthMonitor::onSymbRead));
 
-    /* Initialize the register for DMA ETH */
+    getInfoStream() << " --- Initialize the register for DMA ETH --- " << "\n";
     // set RCC HSERDY 
     set_reg_value(g_s2e_state, 0x40023800, 0x20000);
     // set RCC CFG
@@ -32,21 +32,22 @@ void DmaEthMonitor::initialize() {
 }
 
 bool DmaEthMonitor::set_reg_value(S2EExecutionState *state,uint64_t address, uint32_t value, uint32_t start, uint32_t length) {
-    if( start+length >= 32 )  {
+    if( start+length > 32 )  {
         return false;
     }
     uint32_t Val = get_reg_value(state, address);
     uint32_t msk = (uint32_t) -1  >> start << (32 - length) >> (32 - start - length) ;
     Val =  ( Val & ~msk ) | value;
-    getInfoStream() << "set_reg_value " << hexval(address) << " value " << hexval(value)  << "\n";
-    return state->mem()->write(address, &Val, sizeof(Val));
+    getInfoStream(state) << "set_reg_value " << hexval(address) << " value " << hexval(Val)  << "\n";
+    return state->mem()->write(address, &Val, sizeof(Val), AddressType::PhysicalAddress);
 }
+
 
 uint32_t DmaEthMonitor::get_reg_value(S2EExecutionState *state,uint64_t address){
     uint32_t value =0;
-    bool ok = state->mem()->read(address, &value, sizeof(value));
-    getInfoStream() << ok << "\n";
-    getInfoStream() << "phaddr " << hexval(address) << " value " << hexval(value) << "\n";
+    bool ok = state->mem()->read(address, &value, sizeof(value), AddressType::PhysicalAddress);
+    getInfoStream(state) << "Read " << (ok ? " Success" : " Failed") << "\n";
+    getInfoStream(state) << "get_reg_value " << hexval(address) << " value " << hexval(value) << "\n";
     return value;
 }
 
