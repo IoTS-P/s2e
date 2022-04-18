@@ -7,14 +7,26 @@
 #include <s2e/S2EExecutionState.h> // S2ExecutionState
 #include <s2e/Plugins/uEmu/PeripheralModelLearning.h>
 
+#include <vector>
+
 namespace s2e {
 namespace plugins {
 namespace hw {
+
+#define ETH_RX_DESC_CNT         4U
+#define ETH_DMARXDESC_OWN         31
+#define ETH_DMARXDESC_FS          9 
+#define ETH_DMARXDESC_LS          9
+#define ETH_DMARXDESC_FL          16
+
+
 
 class DmaEthMonitor : public Plugin {
     S2E_PLUGIN
 private:
     PeripheralModelLearning *onPeripheralModelLearningConnection;
+    std::vector<uint32_t> EthBufAddr;
+    std::vector<uint32_t> EthBufLen;
 
 public:
     DmaEthMonitor(S2E *s2e) : Plugin(s2e) { }
@@ -28,6 +40,10 @@ public:
     
                                         
     uint32_t get_reg_value(S2EExecutionState *state, uint64_t address);
+
+    void Prepare_Rx_Desc(S2EExecutionState *state, uint64_t address);
+    
+    void read_from_RxDesc(S2EExecutionState *state, uint64_t address);
 };
 } // namespace hw
 } // namespace plugins
