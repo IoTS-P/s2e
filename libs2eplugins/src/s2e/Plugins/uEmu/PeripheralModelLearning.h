@@ -171,7 +171,7 @@ public:
     sigc::signal<void, S2EExecutionState *, uint64_t /* phaddr */> onInvalidPHs;
 
     sigc::signal<void, S2EExecutionState *, SymbolicHardwareAccessType /* type */,  uint64_t /* phaddr */,
-                 uint32_t  /* size */, uint64_t /* concreteValue */, void * /* opaque */> onSymbReadEvent;
+                 uint32_t  /* size */, uint64_t /* concreteValue */, void * /* opaque */, uint32_t * /* return_value */ > onSymbReadEvent;
 
     sigc::signal<void, S2EExecutionState *, SymbolicHardwareAccessType /* type */,  uint64_t /* phaddr */,
                  uint32_t  /* size */, uint64_t /* concreteValue */, void * /* opaque */> onSymbWriteEvent;

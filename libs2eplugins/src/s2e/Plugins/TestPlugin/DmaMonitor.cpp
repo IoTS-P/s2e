@@ -156,7 +156,7 @@ void DmaMonitor::initialize() {
 
     onPeripheralModelLearningConnection = s2e()->getPlugin<PeripheralModelLearning>();
     onPeripheralModelLearningConnection->onSymbWriteEvent.connect(sigc::mem_fun(*this, &DmaMonitor::onSymbWrite));
-    onPeripheralModelLearningConnection->onSymbReadEvent.connect(sigc::mem_fun(*this, &DmaMonitor::onSymbRead));
+    // onPeripheralModelLearningConnection->onSymbReadEvent.connect(sigc::mem_fun(*this, &DmaMonitor::onSymbRead));
 
     // onInvalidStateDectionConnection->onInvalidStatesEvent.connect(
     //     sigc::mem_fun(*this, &PeripheralModelLearning::onInvalidStatesDetection));
@@ -314,14 +314,14 @@ void DmaMonitor::onSymbWrite(S2EExecutionState *state, SymbolicHardwareAccessTyp
     }
 }
 
-void DmaMonitor::onSymbRead(S2EExecutionState *state, SymbolicHardwareAccessType type, uint64_t address, unsigned size,
-                            uint64_t concreteValue, void *opaque) {
+// void DmaMonitor::onSymbRead(S2EExecutionState *state, SymbolicHardwareAccessType type, uint64_t address, unsigned size,
+//                             uint64_t concreteValue, void *opaque) {
 
-    if (concreteValue == 0x40020050) {
-        s2e()->getWarningsStream() << "------1------- " << hexval(address) << '\n';
-        s2e()->getWarningsStream() << "------2------- " << hexval(concreteValue) << '\n';
-    }
-}
+//     if (concreteValue == 0x40020050) {
+//         s2e()->getWarningsStream() << "------1------- " << hexval(address) << '\n';
+//         s2e()->getWarningsStream() << "------2------- " << hexval(concreteValue) << '\n';
+//     }
+// }
 
 // klee::ref<klee::Expr> DmaMonitor::onDetectingMode(S2EExecutionState *state, SymbolicHardwareAccessType type,
 //                                                   uint64_t address, unsigned size, uint64_t concreteValue) {

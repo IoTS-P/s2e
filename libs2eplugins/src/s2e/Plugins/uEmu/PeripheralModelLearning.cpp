@@ -1658,9 +1658,19 @@ static klee::ref<klee::Expr> symbhw_symbread(struct MemoryDesc *mr, uint64_t phy
 
     unsigned size = value->getWidth() / 8;
     uint64_t concreteValue = g_s2e_state->toConstantSilent(value)->getZExtValue();
-
-    // add emit to invoke dma plugin
-    hw->onSymbReadEvent.emit(g_s2e_state, SYMB_MMIO, physaddress, size, concreteValue, opaque);
+    
+    if ( physaddress > 0x40000000 ) {
+        std::stringstream ss;
+        uint64_t pc = g_s2e_state->regs()->getPc();
+        ss << "iommuread_" << hexval(physaddress) << "@" << hexval(pc) << "_" << "0"; 
+        uint32_t return_value;
+        // add emit to invoke dma plugin
+        hw->onSymbReadEvent.emit(g_s2e_state, SYMB_MMIO, physaddress, size, concreteValue, opaque, &return_value);
+        // and SymbolicValue
+        ConcreteArray concolicValue;
+        SymbHwGetConcolicVector(return_value, size, concolicValue);
+        return g_s2e_state->createSymbolicValue(ss.str(), size * 8, concolicValue);
+    }
     
     if (!g_s2e_cache_mode) {
         return hw->onLearningMode(g_s2e_state, SYMB_MMIO, physaddress, size, concreteValue);
@@ -1761,7 +1771,7 @@ bool PeripheralModelLearning::getPeripheralExecutionState(std::string variablePe
                                                           uint32_t *pc, uint64_t *ch_value, uint64_t *no) {
     boost::smatch what;
     if (!boost::regex_match(variablePeripheralName, what, PeripheralModelLearningRegEx)) {
-        getWarningsStream() << "match false"
+        getWarningsStream() << "match false " << variablePeripheralName
                             << "\n";
         exit(0);
         return false;

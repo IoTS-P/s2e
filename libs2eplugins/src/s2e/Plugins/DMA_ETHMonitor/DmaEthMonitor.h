@@ -32,18 +32,24 @@ public:
     DmaEthMonitor(S2E *s2e) : Plugin(s2e) { }
 
     void initialize();
-    void onSymbWrite(S2EExecutionState *state, SymbolicHardwareAccessType type, uint64_t address, unsigned size,
-                     uint64_t concreteValue, void *);
 
     bool set_reg_value(S2EExecutionState *state,uint64_t address, uint32_t value, 
                                         uint32_t start = 0, uint32_t length = 32);
     
+    void onSymbWrite(S2EExecutionState *state, SymbolicHardwareAccessType type, uint64_t address, unsigned size,
+                     uint64_t concreteValue, void *);
+    
+    void onSymbRead(S2EExecutionState *state, SymbolicHardwareAccessType type, uint64_t address, unsigned size,
+                     uint64_t concreteValue, void *, uint32_t *);
                                         
     uint32_t get_reg_value(S2EExecutionState *state, uint64_t address);
 
     void Prepare_Rx_Desc(S2EExecutionState *state, uint64_t address);
     
     void read_from_RxDesc(S2EExecutionState *state, uint64_t address);
+
+    void onTranslateInst(ExecutionSignal *signal, S2EExecutionState *state, TranslationBlock *tb, uint64_t pc);
+    void onInstExec(S2EExecutionState *state, uint64_t pc );
 };
 } // namespace hw
 } // namespace plugins
