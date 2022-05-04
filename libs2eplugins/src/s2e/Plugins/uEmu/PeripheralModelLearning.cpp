@@ -509,6 +509,7 @@ void PeripheralModelLearning::initialize() {
         exit(-1);
     }
 
+    DmaEthAddrs = {0x40007004, 0x40023800, 0x40023808, 0x40028010, 0x40028014, 0x40029000, 0x4002900c};
     round_count = 0;
     durationtime = 0;
     all_peripheral_no = 0;
@@ -1659,10 +1660,23 @@ static klee::ref<klee::Expr> symbhw_symbread(struct MemoryDesc *mr, uint64_t phy
     unsigned size = value->getWidth() / 8;
     uint64_t concreteValue = g_s2e_state->toConstantSilent(value)->getZExtValue();
     
-    if ( physaddress > 0x40000000 ) {
+    if (find(hw->DmaEthAddrs.begin(), hw->DmaEthAddrs.end(), physaddress) != hw->DmaEthAddrs.end()) {
         std::stringstream ss;
         uint64_t pc = g_s2e_state->regs()->getPc();
-        ss << "iommuread_" << hexval(physaddress) << "@" << hexval(pc) << "_" << "0"; 
+        ss << "iommuread_" << hexval(physaddress) << "@" << hexval(pc);
+
+        // get HASH FAILED NOW
+        // DECLARE_PLUGINSTATE(PeripheralModelLearningState, g_s2e_state);
+        // uint64_t sum_hash = 0x0;
+        // if (g_s2e_state->regs()->getInterruptFlag()) {
+        //     sum_hash = plgState->get_current_hash(g_s2e_state->regs()->getExceptionIndex());
+        // } else {
+        //     sum_hash = plgState->get_current_hash(0);
+        // }
+        // ss << "_" << hexval(sum_hash);
+
+        ss << "_" << 0x0;
+
         uint32_t return_value;
         // add emit to invoke dma plugin
         hw->onSymbReadEvent.emit(g_s2e_state, SYMB_MMIO, physaddress, size, concreteValue, opaque, &return_value);
@@ -1670,7 +1684,7 @@ static klee::ref<klee::Expr> symbhw_symbread(struct MemoryDesc *mr, uint64_t phy
         ConcreteArray concolicValue;
         SymbHwGetConcolicVector(return_value, size, concolicValue);
         return g_s2e_state->createSymbolicValue(ss.str(), size * 8, concolicValue);
-    }
+    } 
     
     if (!g_s2e_cache_mode) {
         return hw->onLearningMode(g_s2e_state, SYMB_MMIO, physaddress, size, concreteValue);

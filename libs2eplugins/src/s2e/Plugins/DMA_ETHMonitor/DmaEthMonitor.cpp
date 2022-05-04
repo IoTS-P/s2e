@@ -5,7 +5,6 @@
 #include <s2e/S2E.h> // s2e()
 
 #include "DmaEthMonitor.h"
-
 namespace s2e {
 namespace plugins {
 namespace hw {
@@ -34,18 +33,26 @@ namespace {
         bool get_ODSWRDY() { return is_ODSWRDY_on;}
         void set_CFGR_SW_val(uint64_t val );
         uint32_t get_CFGR_SW_val(){ return CFGR_SW_val;}
+        bool get_RegState(RegState rs){return RegStateArray[rs];}
+        void set_RegState(RegState rs, bool b){ RegStateArray[rs] = b; }
+        void set_RxDesc(uint64_t val ) { RxDesc = (uint32_t) val;}
+        uint32_t get_RxDesc() { return RxDesc; }
+        std::vector<uint32_t> EthBufAddr;
+        std::vector<uint32_t> EthBufLen;
+        void set_MACMIIDR(uint64_t val) { MACMIIDR_value = (uint16_t)val;} 
+        uint16_t  get_MACMIIDR() { return MACMIIDR_value;}
     private:
         bool is_pll_on = false;
         bool is_odr_on = false;
         bool is_ODSWRDY_on = false;
         uint32_t CFGR_SW_val = 0;
+        bool RegStateArray[RegState::RS_END]; 
+        uint32_t RxDesc = 0;
+        uint16_t MACMIIDR_value = 0;
     };
 
     void DmaEthMonitorState::set_CFGR_SW_val(uint64_t val ) {
-        // if ( val > 3 ) {
-        
-        // }
-        CFGR_SW_val = (uint32_t) val & 0x3;
+        CFGR_SW_val = (uint32_t) val & 0x3; // get SW value from RCC_CFGR
     }
 }
 
@@ -56,15 +63,6 @@ void DmaEthMonitor::initialize() {
     onPeripheralModelLearningConnection->onSymbWriteEvent.connect(sigc::mem_fun(*this, &DmaEthMonitor::onSymbWrite));
     onPeripheralModelLearningConnection->onSymbReadEvent.connect(sigc::mem_fun(*this, &DmaEthMonitor::onSymbRead));
     s2e()->getCorePlugin()->onTranslateInstructionStart.connect(sigc::mem_fun(*this, &DmaEthMonitor::onTranslateInst));
-    getInfoStream() << " --- Initialize the register for DMA ETH --- " << "\n";
-    // set RCC HSERDY & PLLRDY
-    //set_reg_value(g_s2e_state, 0x40023800, 0x2020000);
-    // set RCC CFGR
-    // when set the SW in RCC_CFGR by software the hardware should set the SWS but we can set it in initialization.
-    //set_reg_value(g_s2e_state, 0x40023808, 0x8); 
-    // set PWR ODRDY & ODSWRDY
-    //set_reg_value(g_s2e_state, 0x40007004, 0x30000);
-
 }
 
 bool DmaEthMonitor::set_reg_value(S2EExecutionState *state,uint64_t address, uint32_t value, uint32_t start, uint32_t length) {
@@ -91,36 +89,49 @@ void DmaEthMonitor::onSymbWrite(S2EExecutionState *state, SymbolicHardwareAccess
                      uint64_t concreteValue, void *opaque) {
     DECLARE_PLUGINSTATE(DmaEthMonitorState, state);
 
-    // bool ok = true;
 
     //test 
     getWarningsStream(state) << "write to address " << hexval(address) << " value " << hexval(concreteValue) << "\n";
     // PLL on
     if( address == 0x42470060 && concreteValue & 0x1 ) {
-        getWarningsStream(state) << " set pll on physaddress " << hexval(address) << " value " << hexval(concreteValue) << "\n" ;
-        plgState->set_pll_on();
+        getWarningsStream(state) << " set pll on " << " value " << hexval(concreteValue) << "\n" ;
+        plgState->set_RegState(RegState::PLL, true);
     } else if (address == 0x420E0040 && concreteValue & 0x1 ) {
         getWarningsStream(state) << " set odr on physaddress " << hexval(address) << " value " << hexval(concreteValue) << "\n" ;
-        plgState->set_odr_on();
+        plgState->set_RegState(RegState::ODR, true);
     } else if (address == 0x420E0044 && concreteValue & 0x1 ) {
         getWarningsStream(state) << " set odswrdy on physaddress " << hexval(address) << " value " << hexval(concreteValue) << "\n" ;
-        plgState->set_ODSWRDY_on();
-    } else if (address == 0x40023808)// && concreteValue <  4 ) { // set SW in CFGR
-        getWarningsStream(state) << " get SW in CFGR: value " << hexval(concreteValue) << "\n";
+        plgState->set_RegState(RegState::ODSWRDY, true);
+    } else if (address ==  RCC_CFGR) { // set SW in CFGR
+        getWarningsStream(state) << " store the CFGR value : " << hexval(concreteValue) <<  " pc " << hexval(state->regs()->getPc()) << "\n";
         plgState->set_CFGR_SW_val(concreteValue);
-    }
-    // Change invoked by conditions 
-    // if( address == 0x40023804) { //ETH_MACFFR
-    //     ok &= set_reg_value(state, 0x40023800, 0x1, 25, 1);
-    // }else if( address == 0x40029000 && concreteValue&0x1) { // set ETH_MAC_MABMR
-    //     ok &= set_reg_value(state, address, 0);
-    // } else if (address == 0x40028010 && concreteValue&0x1) { // MACMIIAR
-    //     ok &= set_reg_value(state, address, concreteValue&~0x1);
-    // } else if (address == 0x400380C) { // receive descriptor list address
-    //     getInfoStream(g_s2e_state) << "Get RxDesc Address " << concreteValue <<  "\n";
-    //     Prepare_Rx_Desc(state, concreteValue);
-    //     read_from_RxDesc(state, concreteValue);
-    // }                
+    } else if (address ==  ETH_DMABMR ) { 
+        if ( concreteValue & 0x1 ) { // SR
+            getWarningsStream(state) << " set the SR in DMABMR: " << hexval(concreteValue) <<  " pc " << hexval(state->regs()->getPc()) << "\n" ;
+            plgState->set_RegState(RegState::DMABMR_SR, true);
+        }
+    } else if (address ==  ETH_DMARDLAR ) { 
+        getWarningsStream(state) << " get the RxDesc : address " << hexval(concreteValue) <<  " pc " << hexval(state->regs()->getPc()) << "\n" ;
+        plgState->set_RxDesc(concreteValue);
+        for (int i =0; i< 51 ;i++){
+            getWarningsStream(state) << " get the addr[" << i << "] val: "<< hexval(get_reg_value(state, concreteValue+i*4)) << "\n";
+        }
+        read_from_RxDesc(state, concreteValue);
+
+    } else if (address == ETH_MACMIIAR ) {  
+        if ( concreteValue & 0x1 ) { // MB
+            getWarningsStream(state) << " set the MB in MACMIIAR: " << hexval(concreteValue) <<  " pc " << hexval(state->regs()->getPc()) << "\n";
+            plgState->set_RegState(RegState::MACMIIAR_MB, true);
+        }
+        if ( concreteValue & (uint64_t)PHYReg::PHY_BSR ) { 
+            getWarningsStream(state) << " set the PHY_BSR in MACMIIAR: " << hexval(concreteValue) <<  " pc " << hexval(state->regs()->getPc()) << "\n";
+            plgState->set_RegState(RegState::MACMIIAR_PHY_BSR, true);
+        }
+        if ( concreteValue & 0x8000 ) { // DP83848_BCR_SR
+            getWarningsStream(state) << " set the SR in MACMIIAR: " << hexval(concreteValue) <<  " pc " << hexval(state->regs()->getPc()) << "\n";
+            plgState->set_RegState(RegState::MACMIIAR_DP83848_BCR_SR, true);
+        }
+    }          
 
 }
 
@@ -129,21 +140,45 @@ void DmaEthMonitor::onSymbRead(S2EExecutionState *state, SymbolicHardwareAccessT
     
     DECLARE_PLUGINSTATE(DmaEthMonitorState, state);
 
-    if ( address == 0x40023800)  { 
+    if ( address ==  RCC_CR )  { 
         if ( concreteValue & 0x10000 ) { // when HSE on read HSE need to be HSE rdy
-            *return_value = concreteValue | 0x20000;
+            *return_value = concreteValue | HSERDY;
             getWarningsStream(state) << "HSE RDY when HSE on " << *return_value << "\n" ;
         } 
-        if ( plgState->get_pll() ) {
-            *return_value = concreteValue | 0x2000000;
+        if ( plgState->get_RegState(RegState::PLL) ) {
+            *return_value = concreteValue | PLLRDY;
             getWarningsStream(state) << "PLL RDY when PLL on" << *return_value << "\n";
         }
-    } else if ( address == 0x40007004 && (plgState->get_odr() || plgState->get_ODSWRDY()) ) {
+    } else if ( address == 0x40007004 && (plgState->get_RegState(RegState::ODR) || plgState->get_RegState(RegState::ODSWRDY)) ) {
         *return_value = concreteValue | 0x30000;
         getWarningsStream(state) << "ODRDY&ODSWRDY when on" << *return_value << "\n";
-    } else if ( address == 0x40023808) { // get SW in CFGR
+    } else if ( address == RCC_CFGR) { // get SW in CFGR
         *return_value = concreteValue |  ( plgState->get_CFGR_SW_val() << 2 );
         getWarningsStream(state) << " SWS is same to SW in CFGR: value " << *return_value << "\n";
+    } else if (address == ETH_DMABMR) {
+        // TODO : maybe should change the value in onSymbWrite but not to return the fake value in every LD
+        // the problem here is that when the SR set it should be all set to 0 , and the DMABMR whill be use for other func
+        // so the Reset func can not be actually did here. Fortunatelly , code just read the first value not all the value in the REG
+        if (plgState->get_RegState(RegState::DMABMR_SR)) {// SR is set;
+            *return_value = concreteValue & ( (uint64_t) - 2);
+            getWarningsStream(state) << " return the value with clear the SR in DMABMR: " << *return_value <<  "\n";
+        }
+    } else if (address == ETH_MACMIIAR) {
+        if(plgState->get_RegState(RegState::MACMIIAR_MB)) {
+            *return_value = concreteValue & ( (uint64_t) - 2);
+            getWarningsStream(state) << " return the value with clear the MB in MACMIIAR: " << *return_value <<  " pc " << hexval(state->regs()->getPc()) << "\n";
+        } 
+        // *return_value = concreteValue & ~0x8000;
+        // getWarningsStream(state) << " return with clear the SR in MACMIIAR: " << *return_value << " pc " << hexval(state->regs()->getPc()) <<  "\n";
+        // if(plgState->get_RegState(RegState::MACMIIAR_DP83848_BCR_SR)) {
+        //     *return_value = concreteValue & ~0x8000;
+        //     getWarningsStream(state) << " return the value with clear the SR in MACMIIAR: " << *return_value <<  "\n";
+        // }
+    } else if (address == ETH_MACMIIDR ) {
+        if(plgState->get_RegState(RegState::MACMIIAR_PHY_BSR)) {
+            *return_value = concreteValue & ( PHY_LINKED_STATUS | PHY_AUTONEGO_COMPLETE ); 
+            getWarningsStream(state) << " return in MACMIIDR : " << *return_value <<  " pc " << hexval(state->regs()->getPc()) << "\n";
+        }
     }
 
 }
@@ -154,8 +189,7 @@ void DmaEthMonitor::Prepare_Rx_Desc(S2EExecutionState *state, uint64_t address) 
     uint64_t DescAddr = address;
     uint32_t descidx = 0;
     uint32_t length = 1000;
-    // uint8_t rxdataready = 0U;
-    uint32_t pbufAddr = 0x50000000; // 获得一个空的地址
+    uint32_t pbufAddr = 0x3000000; // 获得一个空的地址
     for(;descidx<4;descidx++)
     {
         length = (descidx = 3) ? 48 : 1000;
@@ -172,42 +206,48 @@ void DmaEthMonitor::Prepare_Rx_Desc(S2EExecutionState *state, uint64_t address) 
 
         set_reg_value(state, DescAddr+2, pbufAddr); // 设置pbuffer 地址到 DescAddr->DESC2
         for(uint32_t i=0;i<length;i+=4,pbufAddr+=4){
-            set_reg_value(state, (uint64_t)pbufAddr, i);
+            set_reg_value(state, pbufAddr, i);
         }
 
-        DescAddr = (uint64_t)get_reg_value(state,DescAddr+3); // DesAddr = DesAddr->DESC3
+        DescAddr = get_reg_value(state,DescAddr+3); // DesAddr = DesAddr->DESC3
     }
 }
 
 void DmaEthMonitor::read_from_RxDesc(S2EExecutionState *state, uint64_t address)
 {
+    DECLARE_PLUGINSTATE(DmaEthMonitorState, state);
     uint64_t RxDescAddr = address;
-    uint32_t DESC0 = get_reg_value(state, RxDescAddr);
-    uint32_t i;
-    for(i=0;!(DESC0 >> ETH_DMARXDESC_LS & 0x1) && i<4;i++) {
-        DESC0 = get_reg_value(state, RxDescAddr);
-        EthBufAddr.emplace_back(get_reg_value(state, RxDescAddr+2));
-        // BufLen[i] = DESC0 >> ETH_DMARXDESC_FL & 0x3FFF;
-        EthBufLen.emplace_back(DESC0 >> ETH_DMARXDESC_FL & 0x3FFF);
-        // BufAddr[i] = get_reg_value(state, RxDescAddr+2);
-        RxDescAddr = (uint64_t)get_reg_value(state, RxDescAddr+3);
-    }
+    uint32_t DESC1 = 0;
+    uint32_t i = 0;
+
+    do{
+        DESC1 = get_reg_value(state, RxDescAddr+4);
+        plgState->EthBufLen.emplace_back(DESC1 & 0x1FFF);
+        plgState->EthBufAddr.emplace_back(get_reg_value(state, RxDescAddr+8));
+        getWarningsStream(state) << " get the EthBuf [" << i << "] address " << hexval(get_reg_value(state, RxDescAddr+8)) << " length " << hexval(DESC1 & 0x1FFF) << "\n";
+        i++;
+        RxDescAddr = get_reg_value(state, RxDescAddr+12);
+        getWarningsStream(state)  << " get the descriptor[" << i << "] address " << hexval(RxDescAddr) << "\n";
+    }while(RxDescAddr != address);
+
+    getWarningsStream(state) << i << " Descriptors have been found" << "\n";
 
     // TEST_OUT
-    if(!EthBufAddr.empty())
-    {
-        auto i = EthBufAddr.begin();
-        auto j = EthBufLen.begin();
-        for(;i!=EthBufAddr.end() && j!=EthBufAddr.end();i++,j++)
-        {
-            getWarningsStream(state) << "read_from_RxDesc: DmaEthBufAddr " << hexval(*i) << " Length " << hexval(*j) << "\n"; 
-        }
-    }
+    // if(!EthBufAddr.empty())
+    // {
+    //     auto i = EthBufAddr.begin();
+    //     auto j = EthBufLen.begin();
+    //     for(;i!=EthBufAddr.end() && j!=EthBufAddr.end();i++,j++)
+    //     {
+    //         getWarningsStream(state) << "read_from_RxDesc: DmaEthBufAddr " << hexval(*i) << " Length " << hexval(*j) << "\n"; 
+    //     }
+    // }
 }
 
 void DmaEthMonitor::onTranslateInst( ExecutionSignal *signal, S2EExecutionState *state, TranslationBlock *tb, uint64_t pc) {
-    if ( pc == 0x8000CA0 ) { // lwip_init()
-        s2e()->getWarningsStream() << "check the address of exit : " << hexval(pc) << "\n"; 
+    if ( pc == 0x9001B3E ) { // lwip_init()
+        char func_name[] = "ethernetif_input";
+        s2e()->getWarningsStream() << "check the func of exit : " << func_name << " address " << hexval(pc) << "\n"; 
         signal->connect(sigc::mem_fun(*this, &DmaEthMonitor::onInstExec));
     } 
 }

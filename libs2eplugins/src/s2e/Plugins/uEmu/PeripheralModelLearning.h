@@ -17,6 +17,7 @@
 #include <s2e/S2EExecutionState.h>
 #include <s2e/SymbolicHardwareHook.h>
 #include <vector>
+#include <algorithm>
 
 #include <llvm/ADT/SmallVector.h>
 
@@ -161,6 +162,11 @@ private:
     void identifyDataPeripheralRegs(S2EExecutionState *state, std::ofstream &fPHKB);
 
 public:
+
+    /* -------------- DMAEthMonitor  --------------------*/
+    std::vector<uint64_t> DmaEthAddrs;
+    /* -------------- DmaEthMonitor End -----------------*/
+    
     sigc::signal<void, S2EExecutionState *, PeripheralRegisterType /* type */, uint64_t /* physicalAddress */,
                  uint32_t /* t3 rest count */, uint32_t * /* size */, uint32_t * /* fuzz input */,
                  bool * /* enable fuzz */>

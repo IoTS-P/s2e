@@ -8,6 +8,7 @@
 #include <s2e/Plugins/uEmu/PeripheralModelLearning.h>
 
 #include <vector>
+#include <map>
 
 namespace s2e {
 namespace plugins {
@@ -18,15 +19,49 @@ namespace hw {
 #define ETH_DMARXDESC_FS          9 
 #define ETH_DMARXDESC_LS          9
 #define ETH_DMARXDESC_FL          16
+#define PHY_LINKED_STATUS               ((uint16_t)0x0004)  /*!< Valid link established               */
+#define PHY_AUTONEGO_COMPLETE           ((uint16_t)0x0020)  /*!< Auto-Negotiation process completed   */
+#define HSERDY 0x20000
+#define PLLRDY 0x2000000
+
+/* ----------- Register Addresses ---------*/
+#define PWR_CSR  0x40007004 
+#define RCC_CR  0x40023800 
+#define RCC_CFGR  0x40023808 
+#define ETH_MACMIIAR  0x40028010 
+#define ETH_MACMIIDR  0x40028014 
+#define ETH_DMABMR  0x40029000 
+#define ETH_DMARDLAR  0x4002900C 
+
+#define vec  {PWR_CSR, RCC_CR, RCC_CFGR, ETH_MACMIIAR, ETH_MACMIIDR, ETH_DMABMR, ETH_DMARDLAR}
+
+enum  RegState {
+    PLL,
+    ODR,
+    ODSWRDY,
+    DMABMR_SR,
+    MACMIIAR_MB,
+    MACMIIAR_DP83848_BCR_SR,
+    MACMIIAR_PHY_BSR,
+    RS_END, // the last one of RegState
+};
 
 
+// REG value for MACMIIAR MII Register [10:6]
+enum class PHYReg :  uint64_t {
+    PHY_BSR = 0x1 << 6,
+};
+struct RegVal {
+    uint64_t RegAddr;
+    uint64_t RegBit;
+};
 
 class DmaEthMonitor : public Plugin {
     S2E_PLUGIN
 private:
     PeripheralModelLearning *onPeripheralModelLearningConnection;
-    std::vector<uint32_t> EthBufAddr;
-    std::vector<uint32_t> EthBufLen;
+
+    std::map<RegState,RegVal> RegMap;
 
 public:
     DmaEthMonitor(S2E *s2e) : Plugin(s2e) { }
