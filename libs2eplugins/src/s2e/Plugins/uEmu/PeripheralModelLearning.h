@@ -164,7 +164,7 @@ private:
 public:
 
     /* -------------- DMAEthMonitor  --------------------*/
-    std::vector<uint64_t> DmaEthAddrs;
+    // std::vector<uint64_t> DmaEthAddrs;
     /* -------------- DmaEthMonitor End -----------------*/
     
     sigc::signal<void, S2EExecutionState *, PeripheralRegisterType /* type */, uint64_t /* physicalAddress */,

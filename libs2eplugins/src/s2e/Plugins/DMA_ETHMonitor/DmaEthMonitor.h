@@ -17,7 +17,7 @@ namespace hw {
 #define ETH_RX_DESC_CNT         4U
 #define ETH_DMARXDESC_OWN         31
 #define ETH_DMARXDESC_FS          9 
-#define ETH_DMARXDESC_LS          9
+#define ETH_DMARXDESC_LS          8
 #define ETH_DMARXDESC_FL          16
 #define PHY_LINKED_STATUS               ((uint16_t)0x0004)  /*!< Valid link established               */
 #define PHY_AUTONEGO_COMPLETE           ((uint16_t)0x0020)  /*!< Auto-Negotiation process completed   */
@@ -43,6 +43,7 @@ enum  RegState {
     MACMIIAR_MB,
     MACMIIAR_DP83848_BCR_SR,
     MACMIIAR_PHY_BSR,
+    SRL, // start of receive list 
     RS_END, // the last one of RegState
 };
 
@@ -79,9 +80,7 @@ public:
                                         
     uint32_t get_reg_value(S2EExecutionState *state, uint64_t address);
 
-    void Prepare_Rx_Desc(S2EExecutionState *state, uint64_t address);
-    
-    void read_from_RxDesc(S2EExecutionState *state, uint64_t address);
+    void read_prepare_RxDesc(S2EExecutionState *state, uint64_t address);
 
     void onTranslateInst(ExecutionSignal *signal, S2EExecutionState *state, TranslationBlock *tb, uint64_t pc);
     void onInstExec(S2EExecutionState *state, uint64_t pc );
