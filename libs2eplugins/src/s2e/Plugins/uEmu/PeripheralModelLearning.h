@@ -165,6 +165,9 @@ public:
 
     /* -------------- DMAEthMonitor  --------------------*/
     // std::vector<uint64_t> DmaEthAddrs;
+    sigc::signal<void, S2EExecutionState *, PeripheralRegisterType /* type */, uint64_t /* physicalAddress */,
+                 uint32_t /* t3 rest count */, uint32_t * /* size */, uint32_t * /* fuzz input */,
+                 bool * /* enable fuzz */>onDmaEthFuzzingInput;
     /* -------------- DmaEthMonitor End -----------------*/
     
     sigc::signal<void, S2EExecutionState *, PeripheralRegisterType /* type */, uint64_t /* physicalAddress */,

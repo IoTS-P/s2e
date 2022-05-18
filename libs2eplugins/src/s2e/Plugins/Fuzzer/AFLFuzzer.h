@@ -14,6 +14,7 @@
 #include <s2e/S2EExecutionState.h>
 #include <s2e/SymbolicHardwareHook.h>
 
+#include <s2e/Plugins/DMA_ETHMonitor/DmaEthMonitor.h>
 namespace s2e {
 namespace plugins {
 typedef llvm::DenseMap<uint32_t, uint32_t> TBCounts;
@@ -32,7 +33,7 @@ static unsigned int afl_inst_rms = MAP_SIZE;
 static unsigned char *afl_area_ptr;
 static uint8_t *testcase;
 static uint8_t *bitmap;
-struct AFL_data *afl_con;
+struct AFL_data *afl_con; 
 static int32_t AFL_shm_id, bitmap_shm_id, testcase_shm_id;
 #define AFL_IoT_S2E_KEY 7777
 #define AFL_BITMAP_KEY 8888
@@ -58,14 +59,14 @@ enum {
     /* 06 */ END_uEmu
 };
 
-class AFLFuzzer : public Plugin {
+class AFLFuzzer : public Plugin { 
     S2E_PLUGIN
 public:
     AFLFuzzer(S2E *s2e) : Plugin(s2e) {
     }
 
     sigc::signal<void, S2EExecutionState *, uint32_t /* Fuzzer End Tyep */> onFuzzerTerminationEvent;
-
+    sigc::signal<void, S2EExecutionState *> onDEFuzzIn;
     void initialize();
 
     struct MEM {
@@ -89,7 +90,7 @@ private:
     sigc::connection invalidPCAccessConnection;
     sigc::connection blockEndConnection;
     sigc::connection timerConnection;
-
+    sigc::connection DmaEthMonitorConnection;
     TBCounts all_tb_map;
     uint64_t unique_tb_num; // new tb number
     bool enable_fuzzing;
@@ -115,12 +116,22 @@ private:
     void onInvalidPCAccess(S2EExecutionState *state, uint64_t addr);
     void onFuzzingInput(S2EExecutionState *state, PeripheralRegisterType type, uint64_t phaddr, uint32_t t3_count,
                         uint32_t *size, uint32_t *value, bool *doFuzz);
-    void onTranslateBlockEnd(ExecutionSignal *signal, S2EExecutionState *state, TranslationBlock *tb, uint64_t pc,
-                             bool staticTarget, uint64_t staticTargetPc);
+    void onTranslateBlockEnd(ExecutionSignal *signal, S2EExecutionState *state,
+                                                      TranslationBlock *tb, uint64_t pc, bool staticTarget,
+                                                      uint64_t staticTargetPc);
     void onBlockEnd(S2EExecutionState *state, uint64_t pc, unsigned source_type);
     void onCrashHang(S2EExecutionState *state, uint32_t flag);
     void onTimer();
     void recordTBMap();
+
+    //DmaEthMonitor
+    void onDmaEthFuzzingIn(S2EExecutionState *state, uint64_t RxDescAddr); 
+    uint32_t get_reg_value(S2EExecutionState *state, uint64_t address);
+
+    void write_RxDesc_EthBuff(S2EExecutionState *state, uint64_t address,uint8_t *testcase, uint32_t size);
+
+    bool set_reg_value(S2EExecutionState *state,uint64_t address, uint32_t value, 
+                                        uint32_t start = 0, uint32_t length = 32);
 };
 
 } // namespace plugins

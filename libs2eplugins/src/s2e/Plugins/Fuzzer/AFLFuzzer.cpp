@@ -52,6 +52,7 @@ public:
     void clear_hit_count() {
         hit_count = 0;
     }
+
 };
 
 /* Set up SHM region and initialize other stuff. */
@@ -181,8 +182,8 @@ void AFLFuzzer::initialize() {
                          << " size:" << hexval(rams[i].size) << "\n";
     }
 
-    blockEndConnection = s2e()->getCorePlugin()->onTranslateBlockEnd.connect(
-        sigc::mem_fun(*this, &AFLFuzzer::onTranslateBlockEnd));
+    blockEndConnection =
+        s2e()->getCorePlugin()->onTranslateBlockEnd.connect(sigc::mem_fun(*this, &AFLFuzzer::onTranslateBlockEnd));
     concreteDataMemoryAccessConnection = s2e()->getCorePlugin()->onConcreteDataMemoryAccess.connect(
         sigc::mem_fun(*this, &AFLFuzzer::onConcreteDataMemoryAccess));
 
@@ -193,8 +194,7 @@ void AFLFuzzer::initialize() {
     hang_timeout = s2e()->getConfig()->getInt(getConfigKey() + ".hangTimeout", 10);
     max_fork_count = s2e()->getConfig()->getInt(getConfigKey() + ".forkCount", 10, &ok);
     if (max_fork_count < 100) {
-        getWarningsStream()
-            << "Too frequent fork will slow down fuzzing speed and very like go to the deep path!!!\n";
+        getWarningsStream() << "Too frequent fork will slow down fuzzing speed and very like go to the deep path!!!\n";
     }
 
     auto crash_keys = cfg->getIntegerList(getConfigKey() + ".crashPoints");
@@ -207,6 +207,9 @@ void AFLFuzzer::initialize() {
     PeripheralConnection->onFuzzingInput.connect(sigc::mem_fun(*this, &AFLFuzzer::onFuzzingInput));
     PeripheralConnection->onModeSwitch.connect(sigc::mem_fun(*this, &AFLFuzzer::onModeSwitch));
     PeripheralConnection->onInvalidPHs.connect(sigc::mem_fun(*this, &AFLFuzzer::onInvalidPHs));
+
+    DmaEthMonitorConnection = s2e()->getPlugin<hw::DmaEthMonitor>()->onDmaEthFuzz.connect(
+        sigc::mem_fun(*this, &AFLFuzzer::onDmaEthFuzzingIn));
 
     afl_setup();
 
@@ -334,7 +337,7 @@ void AFLFuzzer::onFuzzingInput(S2EExecutionState *state, PeripheralRegisterType 
             cur_read = 0;
             Ethernet.pos = 0;
             getDebugStream() << "fork at checking point phaddr  = " << hexval(phaddr)
-                                << " pc = " << hexval(state->regs()->getPc()) << "\n";
+                             << " pc = " << hexval(state->regs()->getPc()) << "\n";
             hw::ConcreteArray concolicValue;
             SymbHwGetConcolicVector(0x0, *size, concolicValue);
             klee::ref<klee::Expr> original_value =
@@ -368,6 +371,59 @@ void AFLFuzzer::onFuzzingInput(S2EExecutionState *state, PeripheralRegisterType 
         } else {
             memset(value, 0, 4 * sizeof(char));
             cur_read = 0;
+        }
+    }
+}
+
+void AFLFuzzer::onDmaEthFuzzingIn(S2EExecutionState *state, uint64_t RxDescAddr) {
+    DECLARE_PLUGINSTATE(AFLFuzzerState, state);
+    getWarningsStream(state) << "In DmaEthFuzzingIn" << "\n";
+    // plgState->clear_hit_count(); // test
+    if (g_s2e_cache_mode) {
+        // initialize for the first DmaEth FuzzingInput
+        if (plgState->get_hit_count() == 0) {
+            afl_con->AFL_return = 0;
+            invaild_pc = 0;
+            cur_read = 0;
+            Ethernet.pos = 0;
+            getDebugStream() << "fork at pc = " << hexval(state->regs()->getPc()) << "\n";
+            hw::ConcreteArray concolicValue;
+            SymbHwGetConcolicVector(0x0, 1, concolicValue);
+            klee::ref<klee::Expr> original_value =
+                state->createSymbolicValue("Eth_Frame", 1 * 8, concolicValue);
+            s2e()->getExecutor()->forkAndConcretize(state, original_value);
+        }
+
+        plgState->inc_hit_count();
+        timer_ticks = 0;
+        getWarningsStream(state) << "Before DmaEthFuzzingIn write_buffer" << "\n";
+        int i = 0; // iter for waiting the AFL_input to come in
+        while (!afl_con->AFL_input) {
+            if (i > 1000000000)
+                break;
+            i++;
+        }
+
+        if (i < 1000000000) {
+            // create frame value for the AFL
+            write_RxDesc_EthBuff(state, RxDescAddr, testcase, afl_con->AFL_size);
+        } else {
+            getWarningsStream() << "TIMEOUT when get AFL_input"
+                                << "\n";
+            write_RxDesc_EthBuff(state, RxDescAddr, 0, 0);
+        }
+        getWarningsStream() << "AFL_input = " << afl_con->AFL_input << " AFL_size = " << afl_con->AFL_size << "\n";
+        // the code from original onFuzzInput
+        memcpy(afl_area_ptr, bitmap, MAP_SIZE);
+        afl_con->AFL_input = 0;
+        fork_count++;
+        if (fork_count > max_fork_count) {
+            fork_count = 0;
+            std::string s;
+            llvm::raw_string_ostream ss(s);
+            ss << "Fork point each " << max_fork_count << " testcases\n";
+            ss.flush();
+            s2e()->getExecutor()->terminateState(*state, s);
         }
     }
 }
@@ -445,17 +501,16 @@ void AFLFuzzer::recordTBMap() {
 
     for (auto ittb : all_tb_map) {
         if (ittb.second > 0)
-            fTBmap << hexval(ittb.first)  << " " << ittb.second << std::endl;;
+            fTBmap << hexval(ittb.first) << " " << ittb.second << std::endl;
+        ;
     }
 
     fTBmap.close();
 }
 
-void AFLFuzzer::onTranslateBlockEnd(ExecutionSignal *signal, S2EExecutionState *state,
-                                                 TranslationBlock *tb, uint64_t pc, bool staticTarget,
-                                                 uint64_t staticTargetPc) {
-    signal->connect(
-        sigc::bind(sigc::mem_fun(*this, &AFLFuzzer::onBlockEnd), (unsigned) tb->se_tb_type));
+void AFLFuzzer::onTranslateBlockEnd(ExecutionSignal *signal, S2EExecutionState *state, TranslationBlock *tb,
+                                    uint64_t pc, bool staticTarget, uint64_t staticTargetPc) {
+    signal->connect(sigc::bind(sigc::mem_fun(*this, &AFLFuzzer::onBlockEnd), (unsigned) tb->se_tb_type));
 }
 
 void AFLFuzzer::onBlockEnd(S2EExecutionState *state, uint64_t cur_loc, unsigned source_type) {
@@ -483,8 +538,8 @@ void AFLFuzzer::onBlockEnd(S2EExecutionState *state, uint64_t cur_loc, unsigned 
     }
 
     if (timer_ticks > (hang_timeout - 1)) {
-        getWarningsStream() << g_s2e_allow_interrupt << " what happen when we are hang at pc = "
-                            << hexval(cur_loc) << ", maybe add it as a crash point\n";
+        getWarningsStream() << g_s2e_allow_interrupt << " what happen when we are hang at pc = " << hexval(cur_loc)
+                            << ", maybe add it as a crash point\n";
     }
 
     // user-defined crash points
@@ -528,6 +583,68 @@ void AFLFuzzer::onBlockEnd(S2EExecutionState *state, uint64_t cur_loc, unsigned 
                             << " pc = " << hexval(state->regs()->getPc()) << "\n";
         onCrashHang(state, 1);
     }
+}
+
+void AFLFuzzer::write_RxDesc_EthBuff(S2EExecutionState *state, uint64_t address, uint8_t *testcase, uint32_t size) {
+
+    getWarningsStream(state) << "In write_RxDesc_EthBuff" << "\n";
+    if (!address) {
+        getWarningsStream(state) << "failed to get RxDesc"
+                                 << "\n";
+    }
+    uint64_t RxDescAddr = address;
+    uint64_t NextAddr;
+    uint32_t EthBufAddr; // the address for ETH buffer to store the frame
+
+    while (1) {
+        /* Prepare for the application to read */
+        set_reg_value(state, RxDescAddr, 0, ETH_DMARXDESC_OWN, 1); // clear the OWN bit
+        if (RxDescAddr == address) {                               // the first descriptor
+            set_reg_value(state, RxDescAddr, 1, ETH_DMARXDESC_FS, 1);
+            EthBufAddr = get_reg_value(state, RxDescAddr + 8);
+        }
+        NextAddr = get_reg_value(state, RxDescAddr + 12);
+        if (NextAddr == address) { // the last descriptor
+            set_reg_value(state, RxDescAddr, 1, ETH_DMARXDESC_LS, 1);
+            break;
+        }
+
+        RxDescAddr = NextAddr;
+    }
+
+    if (!size) {
+        getWarningsStream(state) << "TIMEOUT for AFLFuzzer Input"
+                                 << "\n";
+        char a[] =
+            "crc.In some cases, using your fingerprint to log into the system may inhibit certain other functions "
+            "of the desktop environment. For example, ";
+        size = sizeof(a);
+        testcase = (uint8_t *) a;
+    }
+    state->mem()->write(EthBufAddr, testcase, size, s2e::PhysicalAddress); // write frame to EthBuffer
+    set_reg_value(state, RxDescAddr, size, 16, 14);                        // set the FrameLen in the last descriptor
+    getWarningsStream(state) << "set the frame for RxDesc: address " << hexval(EthBufAddr) << " length " << size
+                             << "\n";
+}
+
+bool AFLFuzzer::set_reg_value(S2EExecutionState *state, uint64_t address, uint32_t value, uint32_t start,
+                              uint32_t length) {
+    if (start + length > 32) {
+        return false;
+    }
+    uint32_t Val = get_reg_value(state, address);
+    uint32_t msk = (uint32_t) -1 >> start << (32 - length) >> (32 - start - length);
+    Val = (Val & ~msk) | (value << start);
+    getInfoStream(state) << "set_reg_value " << hexval(address) << " value " << hexval(Val) << "\n";
+    return state->mem()->write(address, &Val, sizeof(Val), AddressType::PhysicalAddress);
+}
+
+uint32_t AFLFuzzer::get_reg_value(S2EExecutionState *state, uint64_t address) {
+    uint32_t value = 0;
+    bool ok = state->mem()->read(address, &value, sizeof(value), AddressType::PhysicalAddress);
+    getInfoStream(state) << "Read " << (ok ? " Success" : " Failed") << "\n";
+    getInfoStream(state) << "get_reg_value " << hexval(address) << " value " << hexval(value) << "\n";
+    return value;
 }
 
 } // namespace plugins

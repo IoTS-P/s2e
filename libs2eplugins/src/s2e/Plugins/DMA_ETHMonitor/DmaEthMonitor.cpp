@@ -98,6 +98,8 @@ void DmaEthMonitorState::set_CFGR_SW_val(uint64_t val) {
 
 void DmaEthMonitor::initialize() {
 
+    enable_fuzzing = s2e()->getConfig()->getBool(getConfigKey() + ".useFuzzer", false);
+
     onPeripheralModelLearningConnection = s2e()->getPlugin<PeripheralModelLearning>();
     onPeripheralModelLearningConnection->onSymbWriteEvent.connect(sigc::mem_fun(*this, &DmaEthMonitor::onSymbWrite));
     onPeripheralModelLearningConnection->onSymbReadEvent.connect(sigc::mem_fun(*this, &DmaEthMonitor::onSymbRead));
@@ -164,11 +166,15 @@ void DmaEthMonitor::onSymbWrite(S2EExecutionState *state, SymbolicHardwareAccess
             getWarningsStream(state) << " get the addr[" << i
                                      << "] val: " << hexval(get_reg_value(state, concreteValue + i * 4)) << "\n";
         }
-        read_prepare_RxDesc(state, concreteValue);
-        for (int i =0; i< 28 ;i++){
-            getWarningsStream(state) << " get the addr[" << i << "] val: "<< hexval(get_reg_value(state, concreteValue+i*4)) << "\n";
+        if(g_s2e_cache_mode & enable_fuzzing )
+            onDmaEthFuzz.emit(state, concreteValue);
+        else  // should maintain the RxDesc to ensure the app run to main loop
+            read_prepare_RxDesc(state,concreteValue);
+        for (int i = 0; i < 28; i++) {
+            getWarningsStream(state) << " get the addr[" << i
+                                     << "] val: " << hexval(get_reg_value(state, concreteValue + i * 4)) << "\n";
         }
-        
+
     } else if (address == ETH_MACMIIAR) {
         if (concreteValue & 0x1) { // MB
             getWarningsStream(state) << " set the MB in MACMIIAR: " << hexval(concreteValue) << " pc "
@@ -232,7 +238,7 @@ void DmaEthMonitor::onSymbRead(S2EExecutionState *state, SymbolicHardwareAccessT
         // }
     } else if (address == ETH_MACMIIDR) {
         if (plgState->get_RegState(RegState::MACMIIAR_PHY_BSR)) {
-            *return_value = concreteValue & (PHY_LINKED_STATUS | PHY_AUTONEGO_COMPLETE);
+            *return_value = concreteValue | (PHY_LINKED_STATUS | PHY_AUTONEGO_COMPLETE);
             getWarningsStream(state) << " return in MACMIIDR : " << *return_value << " pc "
                                      << hexval(state->regs()->getPc()) << "\n";
         }
@@ -242,16 +248,20 @@ void DmaEthMonitor::onSymbRead(S2EExecutionState *state, SymbolicHardwareAccessT
                                      << hexval(state->regs()->getPc()) << "\n";
             // prepare_frame(state,concreteValue);
         }
+    } else if(address == ETH_DMASR ){
+        getWarningsStream(state) << "read DMASR and emit the Fuzz pc " << hexval(state->regs()->getPc()) << "\n";
+        if(enable_fuzzing & g_s2e_cache_mode)
+            onDmaEthFuzz.emit(state,plgState->get_RxDesc());
+        else 
+            read_prepare_RxDesc(state, plgState->get_RxDesc());
     } else {
         int i;
         std::vector<uint64_t> v = plgState->RxDescAddrv;
-        for(i=0;i<v.size();i++) {
-            if(address == v[i] && concreteValue & 0x80000000 ) {
+        for (i = 0; i < v.size(); i++) {
+            if (address == v[i] && concreteValue & 0x80000000) {
                 *return_value = concreteValue & ~0x80000000;
                 getWarningsStream(state) << " return without own in RxDesc: " << *return_value << " pc "
                                          << hexval(state->regs()->getPc()) << "\n";
-                
-                
             }
         }
     }
@@ -264,7 +274,7 @@ void DmaEthMonitor::read_prepare_RxDesc(S2EExecutionState *state, uint64_t addre
     uint32_t DESC1 = 0;
     uint32_t i = 0;
 
-    while(1) {
+    while (1) {
         /* Prepare for the application to read */
         set_reg_value(state, RxDescAddr, 0, ETH_DMARXDESC_OWN, 1); // clear the OWN bit
         if (RxDescAddr == address) {                               // the first descriptor
@@ -284,7 +294,7 @@ void DmaEthMonitor::read_prepare_RxDesc(S2EExecutionState *state, uint64_t addre
         }
 
         RxDescAddr = NextAddr;
-        
+
         // LOG OUT
         getWarningsStream(state) << " get the EthBuf [" << i << "] address "
                                  << hexval(get_reg_value(state, RxDescAddr + 8)) << " length " << hexval(DESC1 & 0x1FFF)
@@ -306,10 +316,6 @@ void DmaEthMonitor::read_prepare_RxDesc(S2EExecutionState *state, uint64_t addre
     getWarningsStream(state) << "set the frame for RxDesc: address " << hexval(plgState->EthBufAddr[0]) << " length "
                              << plgState->get_FL() << "\n";
 }
-
-// void DmaEthMonitor::prepare_frame(S2EExecutionState state, uint64_t RxAddr) {
-
-// }
 
 void DmaEthMonitor::onTranslateInst(ExecutionSignal *signal, S2EExecutionState *state, TranslationBlock *tb,
                                     uint64_t pc) {
