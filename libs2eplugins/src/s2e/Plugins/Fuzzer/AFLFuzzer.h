@@ -108,7 +108,7 @@ private:
     uint64_t afl_end_code;   /* .text end pointer        */
     uint64_t hang_timeout;
     uint64_t timer_ticks;
-
+    uint64_t timeout_t;
     void onConcreteDataMemoryAccess(S2EExecutionState *state, uint64_t vaddr, uint64_t value, uint8_t size,
                                     unsigned flags);
     void onInvalidPHs(S2EExecutionState *state, uint64_t addr);

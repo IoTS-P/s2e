@@ -1670,21 +1670,24 @@ static klee::ref<klee::Expr> symbhw_symbread(struct MemoryDesc *mr, uint64_t phy
     unsigned size = value->getWidth() / 8;
     uint64_t concreteValue = g_s2e_state->toConstantSilent(value)->getZExtValue();
 
-    // if (find(hw->DmaEthAddrs.begin(), hw->DmaEthAddrs.end(), physaddress) != hw->DmaEthAddrs.end()) {
+    if (physaddress < 0x43000000 && physaddress > 0x40000000) {
         uint32_t return_value;
         // add emit to invoke dma plugin
         hw->onSymbReadEvent.emit(g_s2e_state, SYMB_MMIO, physaddress, size, concreteValue, opaque, &return_value);
 
         if (return_value != concreteValue) { // if the value has been changed then trigger the SymbolicValue creation.
-            std::stringstream ss;
-            uint64_t pc = g_s2e_state->regs()->getPc();
-            ss << "iommuread_" << hexval(physaddress) << "@" << hexval(pc);
-            ss << "_" << 0x0;
-            ConcreteArray concolicValue;
-            SymbHwGetConcolicVector(return_value, size, concolicValue);
-            return g_s2e_state->createSymbolicValue(ss.str(), size * 8, concolicValue);
-        }
-
+            // std::stringstream ss;
+            // uint64_t pc = g_s2e_state->regs()->getPc();
+            // ss << "iommuread_" << hexval(physaddress) << "@" << hexval(pc);
+            // ss << "_" << 0x0;
+            // ConcreteArray concolicValue;
+            // SymbHwGetConcolicVector(return_value, size, concolicValue);
+            // return g_s2e_state->createSymbolicValue(ss.str(), size * 8, concolicValue);
+            uint64_t LSB = ((uint64_t) 1 << (size * 8));
+            return_value &= (LSB - 1);
+            return klee::ConstantExpr::create(return_value, size*8);
+       }
+    }
     if (!g_s2e_cache_mode) {
         return hw->onLearningMode(g_s2e_state, SYMB_MMIO, physaddress, size, concreteValue);
         // learningmodetest version
